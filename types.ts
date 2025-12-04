@@ -1,28 +1,28 @@
+export interface FitsHeaderCard {
+  key: string;
+  value: string | number | boolean | null;
+  comment?: string;
+}
+
+export interface FitsColumnDef {
+  label: string;
+  format: string; // TFORMn
+  unit?: string; // TUNITn
+  type?: string; // TTYPEn
+  offset: number; // calculated offset in row
+  dataType: 'FLOAT' | 'DOUBLE' | 'INT' | 'SHORT' | 'BYTE' | 'UNKNOWN';
+}
+
+export interface ParsedFitsData {
+  primaryHeader: FitsHeaderCard[];
+  extensionHeader: FitsHeaderCard[];
+  data: Record<string, (number | null)[]>; // Column name -> Array of values
+  columns: string[];
+  rowCount: number;
+}
+
 export interface DataPoint {
   time: number;
   flux: number;
   error?: number;
-}
-
-export interface AnalysisResult {
-  classification: "PLANET_CANDIDATE" | "FALSE_POSITIVE" | "UNKNOWN";
-  confidence: number;
-  explanation: string;
-  featuresDetected: string[];
-}
-
-export interface Dataset {
-  id: string;
-  name: string;
-  description: string;
-  source: string;
-  data: DataPoint[];
-  period?: number; // Orbital period for folding (if known/simulated)
-  t0?: number;     // Transit epoch
-}
-
-export enum ProcessingMode {
-  RAW = 'RAW',
-  DETRENDED = 'DETRENDED',
-  FOLDED = 'FOLDED'
 }

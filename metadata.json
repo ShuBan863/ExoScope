@@ -1,5 +1,5 @@
 {
-  "name": "ExoDetect AI",
-  "description": "An AI-powered exoplanet detection dashboard visualizing Kepler/TESS light curves and using Gemini 2.5 to classify potential transit signals.",
+  "name": "ExoScope",
+  "description": "A professional-grade FITS file viewer for Kepler and TESS light curve data. processing binary astronomical data directly in the browser.",
   "requestFramePermissions": []
 }
