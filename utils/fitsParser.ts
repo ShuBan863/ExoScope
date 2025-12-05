@@ -1,35 +1,35 @@
 import { FitsHeaderCard, FitsColumnDef, ParsedFitsData } from '../types';
 
-/**
- * Parses a standard FITS file (Kepler/TESS format).
- * This is a custom binary parser that handles standard FITS headers and Binary Tables.
- */
+
+ // Parses a standard FITS file (Kepler/TESS format).
+ // This is a custom binary parser that handles standard FITS headers and Binary Tables.
+ 
 export const parseFitsFile = async (buffer: ArrayBuffer): Promise<ParsedFitsData> => {
   const dataView = new DataView(buffer);
   let offset = 0;
 
-  // 1. Parse Primary Header
+  // Parse Primary Header
   const { header: primaryHeader, bytesRead: primaryBytes } = parseHeaderUnit(dataView, offset);
   offset += primaryBytes;
 
-  // 2. Scan for Extensions (Kepler data is usually in the first BINTABLE extension)
+  // Scan for Extensions
   let extensionHeader: FitsHeaderCard[] = [];
   let tableData: ParsedFitsData['data'] = {};
   let columns: string[] = [];
   let rowCount = 0;
 
-  // Safety limit to prevent infinite loops on bad files
+  // Safety limit 
   let loopLimit = 10;
   
   while (offset < buffer.byteLength && loopLimit > 0) {
-    // Check if we have a header here
+    // Check for header
     const { header, bytesRead } = parseHeaderUnit(dataView, offset);
     
     // Check for XTENSION
     const xtension = header.find(c => c.key === 'XTENSION');
     
     if (xtension && xtension.value === 'BINTABLE') {
-      // Found the binary table
+      // binary table
       extensionHeader = header;
       offset += bytesRead;
       
@@ -48,10 +48,10 @@ export const parseFitsFile = async (buffer: ArrayBuffer): Promise<ParsedFitsData
       // Read the Binary Data
       tableData = readBinaryTable(dataView, offset, nAxis2, nAxis1, colDefs);
       
-      // We found our data, break the loop
+      // break loop
       break;
     } else {
-      // Skip this HDU data if it's not what we want
+      
       offset += bytesRead;
       // Calculate data size to skip
       const naxis = Number(getHeaderValue(header, 'NAXIS') || 0);
@@ -113,8 +113,8 @@ const parseHeaderUnit = (view: DataView, startOffset: number) => {
       break;
     }
 
-    // Parse Value (FITS format is strict but we'll be lenient)
-    // Value indicator is "= " at bytes 8-9 usually
+    // Parse Value
+    
     let value: string | number | boolean | null = null;
     let comment = '';
 
@@ -149,7 +149,7 @@ const parseHeaderUnit = (view: DataView, startOffset: number) => {
     offset += cardSize;
   }
 
-  // Calculate padding to reach multiple of 2880
+  // Calculate padding 
   const totalBytesRead = offset - startOffset;
   const padding = (2880 - (totalBytesRead % 2880)) % 2880;
   
@@ -165,8 +165,8 @@ const parseColumnDefinitions = (header: FitsHeaderCard[], tFields: number): Fits
     const form = getHeaderValue(header, `TFORM${i}`) as string || '';
     const unit = getHeaderValue(header, `TUNIT${i}`) as string || '';
     
-    // Determine byte size and type from TFORM (e.g., '1D', '1E', '1J')
-    // Kepler files usually use: D (double 8), E (float 4), J (int 4), I (short 2), B (byte 1)
+    // Determine byte size and type from TFORM 
+   
     const typeChar = form.replace(/[0-9]/g, '').trim();
     let byteSize = 0;
     let dataType: FitsColumnDef['dataType'] = 'UNKNOWN';
@@ -177,7 +177,7 @@ const parseColumnDefinitions = (header: FitsHeaderCard[], tFields: number): Fits
       case 'J': byteSize = 4; dataType = 'INT'; break;
       case 'I': byteSize = 2; dataType = 'SHORT'; break;
       case 'B': byteSize = 1; dataType = 'BYTE'; break;
-      default: byteSize = 0; // Skip unknown or complex types for this simple viewer
+      default: byteSize = 0; // Skip unknown or complex types 
     }
     
     if (byteSize > 0) {
@@ -191,10 +191,7 @@ const parseColumnDefinitions = (header: FitsHeaderCard[], tFields: number): Fits
         });
         currentOffset += byteSize;
     } else {
-        // Adjust offset for skipped columns if possible, but FITS binary tables 
-        // usually pack standard scalars tightly. Complex columns (arrays) are harder.
-        // For Kepler, most relevant columns are scalars.
-        // We will assume standard packing for now or skip.
+
     }
   }
   return cols;
@@ -228,7 +225,7 @@ const readBinaryTable = (
                     case 'BYTE': val = view.getUint8(pos); break;
                 }
                 
-                // Handle NaNs (FITS might use specific NaN values, JS DataView handles IEEE NaN)
+                // Handle NaNs 
                 if (typeof val === 'number' && isNaN(val)) {
                     val = null;
                 }
