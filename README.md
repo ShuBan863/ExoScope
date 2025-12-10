@@ -1,1 +1,1 @@
-PLACEHOLDER
+ExoScope is a machine-learning project that analyzes Kepler light curves to detect potential exoplanet transits. It identifies periodic dips in stellar brightness, classifies signals, and outputs a confidence rating for each candidate. Designed for accuracy, clarity, and scalability, ExoScope helps streamline exoplanet discovery through automated data analysis.
