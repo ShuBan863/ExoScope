@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Telescope, Github, Rocket, FileQuestion, Activity } from 'lucide-react';
+import { Telescope, FileQuestion } from 'lucide-react';
 import FileUpload from './components/FileUpload';
 import MetadataViewer from './components/MetadataViewer';
 import LightCurveChart from './components/LightCurveChart';
@@ -34,7 +34,7 @@ function App() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-slate-500 text-sm hidden sm:block">Senior Frontend Analysis Tool</span>
+              {/* Removed subtitle */}
             </div>
           </div>
         </div>
@@ -72,7 +72,7 @@ function App() {
                 onClick={handleReset}
                 className="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors text-sm"
               >
-                Analyze Another File
+                Go Back
               </button>
             </div>
 
@@ -85,27 +85,6 @@ function App() {
               <LightCurveChart data={fitsData} />
             </div>
           </div>
-        )}
-
-        {/* Empty State / Demo Hints */}
-        {!fitsData && (
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-                <div className="p-6 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-cyan-500/30 transition-colors">
-                    <Rocket className="w-8 h-8 text-cyan-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Zero Latency</h3>
-                    <p className="text-slate-400 text-sm">Parsing binary FITS tables directly in the browser using JavaScript typed arrays.</p>
-                </div>
-                <div className="p-6 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-cyan-500/30 transition-colors">
-                    <Github className="w-8 h-8 text-cyan-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Standard Compliant</h3>
-                    <p className="text-slate-400 text-sm">Reads standard Header Data Units (HDU) and Binary Table extensions used by MAST archive.</p>
-                </div>
-                <div className="p-6 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-cyan-500/30 transition-colors">
-                    <Activity className="w-8 h-8 text-cyan-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Interactive Viz</h3>
-                    <p className="text-slate-400 text-sm">Zoomable, responsive charts powered by Recharts for detailed transit inspection.</p>
-                </div>
-            </div>
         )}
 
       </main>

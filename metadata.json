@@ -1,5 +1,5 @@
 {
-  "name": "ExoScope",
+  "name": "ExoScope 3",
   "description": "A professional-grade FITS file viewer for Kepler and TESS light curve data. processing binary astronomical data directly in the browser.",
   "requestFramePermissions": []
 }
