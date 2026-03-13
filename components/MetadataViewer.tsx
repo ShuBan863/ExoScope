@@ -53,7 +53,7 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ primaryHeader, extensio
             <div key={idx} className="flex gap-4 border-b border-slate-800/30 pb-0.5 hover:bg-slate-800/50 px-2 rounded">
               <span className="text-cyan-600 w-20 shrink-0 select-all">{card.key}</span>
               <span className="text-emerald-500 select-all">= {String(card.value)}</span>
-              {card.comment && <span className="text-slate-600 truncate flex-1">
+              {card.comment && <span className="text-slate-600 truncate flex-1">{card.comment}</span>}
             </div>
           ))}
         </div>
