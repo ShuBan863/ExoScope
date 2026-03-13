@@ -93,6 +93,8 @@ To stop the server, press `Ctrl+C` in the terminal.
 
 ## Getting a `.fits` File to Test With
 
+Two example files (KIC 3115833 — confirmed planet, KIC 2445129 — false positive) are available directly on the ExoScope home page and can be loaded with one click.
+
 Kepler light curve files are free to download from NASA's MAST archive:
 
 1. Go to [archive.stsci.edu/kepler/data_search](https://archive.stsci.edu/kepler/data_search/search.php)

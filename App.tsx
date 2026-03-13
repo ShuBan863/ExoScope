@@ -14,6 +14,7 @@ import FileUpload from './components/FileUpload';
 import MetadataViewer from './components/MetadataViewer';
 import LightCurveChart from './components/LightCurveChart';
 import ExoplanetResult from './components/ExoplanetResult';
+import ExampleFiles from './components/ExampleFiles';
 import { extractFeatures } from './utils/exoplanetFeatures';
 import { runPrediction, PredictionResult } from './utils/exoplanetModel';
 import { ParsedFitsData } from './types';
@@ -473,7 +474,10 @@ function App() {
 
         {}
         {!fitsData ? (
-          <FileUpload onDataLoaded={handleDataLoaded} />
+          <>
+            <FileUpload onDataLoaded={handleDataLoaded} />
+            <ExampleFiles onDataLoaded={handleDataLoaded} />
+          </>
         ) : (
           <div className="animate-in fade-in zoom-in-95 duration-500">
             {}
