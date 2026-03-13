@@ -13,6 +13,9 @@ import {
 import FileUpload from './components/FileUpload';
 import MetadataViewer from './components/MetadataViewer';
 import LightCurveChart from './components/LightCurveChart';
+import ExoplanetResult from './components/ExoplanetResult';
+import { extractFeatures } from './utils/exoplanetFeatures';
+import { runPrediction, PredictionResult } from './utils/exoplanetModel';
 import { ParsedFitsData } from './types';
 
 type ScenarioId = 'hot_jupiter' | 'earth_analog' | 'variable_star';
@@ -397,15 +400,31 @@ const DemoLightCurve: React.FC = () => {
 function App() {
   const [fitsData, setFitsData] = useState<ParsedFitsData | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
 
-  const handleDataLoaded = (data: ParsedFitsData, name: string) => {
+  const handleDataLoaded = async (data: ParsedFitsData, name: string) => {
     setFitsData(data);
     setFileName(name);
+    setPrediction(null);
+    setMlLoading(true);
+    try {
+      const features = extractFeatures(data);
+      if (features) {
+        const result = await runPrediction(features);
+        setPrediction(result);
+      }
+    } catch (e) {
+      console.error('ML prediction failed:', e);
+    } finally {
+      setMlLoading(false);
+    }
   };
 
   const handleReset = () => {
     setFitsData(null);
     setFileName('');
+    setPrediction(null);
   };
 
   return (
@@ -476,6 +495,13 @@ function App() {
                 extensionHeader={fitsData.extensionHeader}
               />
               <LightCurveChart data={fitsData} />
+              {mlLoading && (
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-8 text-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">Running ML prediction…</p>
+                </div>
+              )}
+              {prediction && <ExoplanetResult result={prediction} />}
             </div>
           </div>
         )}
