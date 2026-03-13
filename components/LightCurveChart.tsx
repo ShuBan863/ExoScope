@@ -244,7 +244,7 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
               strokeWidth={1.5}
               dot={false}
               activeDot={{ r: 4, fill: '#fff' }}
-              animationDuration={800}
+              isAnimationActive={false}
             />
             <Brush
               dataKey="time"

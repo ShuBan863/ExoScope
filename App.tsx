@@ -170,46 +170,48 @@ function generateScenario(id: ScenarioId): DemoPoint[] {
   return points;
 }
 
-const POINTS_PER_FRAME = 7;     
-const HOLD_MS          = 3200;  
+const HOLD_MS = 3200;
+const FRAME_MS = 42;
+const STEPS = 30;
 
 const DemoLightCurve: React.FC = () => {
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [visibleCount,  setVisibleCount]  = useState(0);
   const [showAnnotation, setShowAnnotation] = useState(false);
 
-  
-  
   const allPoints = useRef<DemoPoint[]>([]);
   const rafId     = useRef<number | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFrameTime = useRef<number>(0);
 
   const scenario = SCENARIOS[scenarioIndex];
 
-  
   const advanceScenario = useCallback(() => {
     setShowAnnotation(false);
     setScenarioIndex(prev => (prev + 1) % SCENARIOS.length);
     setVisibleCount(0);
   }, []);
 
-  
   useEffect(() => {
     allPoints.current = generateScenario(scenario.id);
   }, [scenario.id]);
 
-  
   useEffect(() => {
-    
     if (rafId.current   !== null) cancelAnimationFrame(rafId.current);
     if (holdTimer.current !== null) clearTimeout(holdTimer.current);
     setShowAnnotation(false);
 
     const total = allPoints.current.length;
+    const pointsPerStep = Math.ceil(total / STEPS);
     let current = 0;
 
-    const tick = () => {
-      current = Math.min(current + POINTS_PER_FRAME, total);
+    const tick = (timestamp: number) => {
+      if (timestamp - lastFrameTime.current < FRAME_MS) {
+        rafId.current = requestAnimationFrame(tick);
+        return;
+      }
+      lastFrameTime.current = timestamp;
+      current = Math.min(current + pointsPerStep, total);
       setVisibleCount(current);
 
       if (current < total) {
