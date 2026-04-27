@@ -157,7 +157,7 @@ async function getMastProductUrl(obsid: string): Promise<string | null> {
   if (!llc) return null;
   const uri: string = llc.dataURI ?? llc.dataUri ?? llc.uri ?? '';
   if (!uri) return null;
-  return `https://corsproxy.io/?url=https://mast.stsci.edu/api/v0.1/Download/file?uri=${encodeURIComponent(uri)}`;
+  return `/api/mast?uri=${encodeURIComponent(uri)}`;
 }
 
 /**
@@ -174,7 +174,7 @@ async function bruteForceQuarter(kepid: number): Promise<string | null> {
 
   const allUrls = QUARTER_TIMESTAMPS.map((ts) => {
     const uri = `mast:Kepler/url/missions/kepler/lightcurves/${id4}/${id9}/kplr${id9}-${ts}_llc.fits`;
-    return `https://corsproxy.io/?url=https://mast.stsci.edu/api/v0.1/Download/file?uri=${encodeURIComponent(uri)}`;
+    return `/api/mast?uri=${encodeURIComponent(uri)}`;
   });
 
   // Check in batches of 4 (concurrent) → fast but not hammering MAST
