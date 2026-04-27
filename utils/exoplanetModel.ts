@@ -1,160 +1,147 @@
+import * as ort from 'onnxruntime-web';
 import { ExoplanetFeatures } from './exoplanetFeatures';
 
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+
 export interface PredictionResult {
-  isExoplanet: boolean;
-  confidence: number;
-  rfConfidence: number;
-  gbConfidence: number;
-  overridden: boolean;
+  isExoplanet:     boolean;
+  confidence:      number;
+  rfConfidence:    number;
+  gbConfidence:    number;
+  overridden:      boolean;
   overrideReason?: string;
-  features: ExoplanetFeatures;
+  features:        ExoplanetFeatures;
 }
 
-function sigmoid(x: number): number {
-  return 1 / (1 + Math.exp(-x));
+let sessionPromise: Promise<ort.InferenceSession> | null = null;
+
+function getSession(): Promise<ort.InferenceSession> {
+  if (!sessionPromise) {
+    sessionPromise = ort.InferenceSession.create('/model/exoscope_model.onnx', {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+    });
+  }
+  return sessionPromise;
 }
 
-function clamp(x: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, x));
+/** Must match FEATURE_SPEC in train_model.py exactly — 13 features */
+function buildFeatureVector(f: ExoplanetFeatures): Float32Array {
+  const logDur      = Math.log10(Math.max(f.transit_duration_hr, 0.01));
+  const depthXlogg  = f.transit_depth_ppm * f.stellar_logg;
+  const periodXsrad = f.period_days / Math.max(f.stellar_radius_rsun, 0.1);
+  return new Float32Array([
+    f.period_days,
+    f.transit_depth_ppm,
+    f.transit_duration_hr,
+    f.stellar_teff_k,
+    f.stellar_logg,
+    f.stellar_radius_rsun,
+    f.depth_per_hr,
+    f.duty_cycle,
+    f.log_depth,
+    f.log_period,
+    logDur,
+    depthXlogg,
+    periodXsrad,
+  ]);
 }
 
-function rfScore(f: ExoplanetFeatures): number {
-  let score = 0;
-
-  
-  if (f.n_transits === 0) score -= 0.40;
-
-  
-  
-  if (f.n_transits > 0) {
-    score += 0.2023 * (1 - clamp(f.transit_depth_consistency / 1.0, 0, 1));
+function extractProbPlanet(output: ort.InferenceSession.OnnxValueMapType): number {
+  const keys = Object.keys(output);
+  for (const key of keys) {
+    const val = output[key];
+    if (val instanceof ort.Tensor) {
+      const data = val.data as Float32Array | Int32Array | BigInt64Array;
+      if (val.dims.length === 2 && val.dims[1] === 2) return Number(data[1]);
+      if (val.dims.length === 1 || (val.dims.length === 2 && val.dims[1] === 1)) {
+        const v = Number(data[0]);
+        if (v !== 0 && v !== 1) return v;
+      }
+    }
   }
-
-  
-  if (f.n_transits >= 4) {
-    score += 0.1997 * (1 - clamp(f.even_odd_depth_ratio / 0.5, 0, 1));
+  for (const key of keys) {
+    const val = output[key];
+    if (val instanceof ort.Tensor) {
+      const v = Number((val.data as any)[0]);
+      if (v === 0 || v === 1) return v === 1 ? 0.75 : 0.25;
+    }
   }
-
-  
-  score += 0.1400 * clamp(f.transit_count_ratio, 0, 1);
-
-  
-  if (f.n_transits > 0) {
-    score += 0.1325 * (1 - clamp(f.transit_v_shape_score / 0.1, 0, 1));
-  }
-
-  
-  score += 0.1024 * clamp(f.ls_peak_power / 0.5, 0, 1);
-
-  
-  score += 0.1021 * clamp(f.frac_below_1sigma / 0.05, 0, 1);
-
-  
-  score += 0.0307 * (1 - f.zero_transit_flag);
-
-  
-  score += 0.0138 * clamp(f.transit_reality_score, 0, 1);
-
-  
-  if (f.n_transits >= 2 && f.transit_depth_consistency < 0.3) score += 0.10;
-  if (f.n_transits >= 3) score += 0.05;
-  if (f.n_transits >= 2 && f.transit_depth_ppm > 200) score += 0.04;
-
-  
-  if (f.n_transits === 1) score -= 0.20;
-
-  
-  if (f.flux_std > 0.005) score -= 0.05;
-
-  return clamp(score, 0, 1);
+  return 0.5;
 }
 
-function gbScore(f: ExoplanetFeatures): number {
-  let score = 0;
+/**
+ * Primary detection logic using BLS SNR.
+ *
+ * SNR thresholds (empirical from Kepler pipeline):
+ *   SNR > 10  → strong signal, likely planet
+ *   SNR 7-10  → marginal, use ML to decide
+ *   SNR < 7   → weak signal, unlikely planet
+ *
+ * ML probability adjusts confidence within each band.
+ */
+function combineSignals(snr: number, mlProb: number): { isExoplanet: boolean; confidence: number } {
+  // Normalize SNR to 0-1 scale (sigmoid-like)
+  // SNR=7 → ~0.5, SNR=10 → ~0.75, SNR=15 → ~0.9
+  const snrScore = 1 / (1 + Math.exp(-(snr - 8) / 2));
 
-  
-  if (f.n_transits === 0) score -= 0.40;
+  // Blend: 60% SNR, 40% ML
+  const combined = 0.60 * snrScore + 0.40 * mlProb;
 
-  if (f.n_transits > 0) {
-    score += 0.22 * (1 - clamp(f.transit_depth_consistency / 0.8, 0, 1));
-  }
-  if (f.n_transits >= 4) {
-    score += 0.20 * (1 - clamp(f.even_odd_depth_ratio / 0.4, 0, 1));
-  }
+  // Decision threshold: 0.45 (biased toward sensitivity)
+  const isExoplanet = combined >= 0.45;
+  const confidence  = Math.max(0.01, Math.min(0.99, combined));
 
-  score += 0.15 * clamp(f.transit_count_ratio, 0, 1);
-
-  if (f.n_transits > 0) {
-    score += 0.12 * (1 - clamp(f.transit_v_shape_score / 0.08, 0, 1));
-  }
-
-  score += 0.10 * clamp(f.ls_peak_power / 0.4, 0, 1);
-  score += 0.09 * clamp(f.frac_below_1sigma / 0.04, 0, 1);
-  score += 0.04 * (1 - f.zero_transit_flag);
-  score += 0.02 * clamp(f.transit_reality_score, 0, 1);
-
-  const pOk = f.period_days > 1 && f.period_days < 400;
-  if (pOk && f.n_transits > 0) score += 0.02;
-
-  if (f.n_transits >= 2 && f.transit_depth_consistency < 0.3) score += 0.08;
-  if (f.n_transits === 1) score -= 0.20;
-  if (f.flux_std > 0.005) score -= 0.06;
-
-  return clamp(score, 0, 1);
+  return { isExoplanet, confidence };
 }
 
 export async function runPrediction(features: ExoplanetFeatures): Promise<PredictionResult> {
-  
-  await new Promise(r => setTimeout(r, 600));
+  const session = await getSession();
 
-  const rf = rfScore(features);
-  const gb = gbScore(features);
-  const ensemble = (rf + gb) / 2;
+  const vec    = buildFeatureVector(features);
+  const tensor = new ort.Tensor('float32', vec, [1, 13]);
+  const feeds  = { [session.inputNames[0]]: tensor };
 
-  
-  
-  const rfConf = clamp(sigmoid((rf - 0.48) * 8), 0.01, 0.99);
-  const gbConf = clamp(sigmoid((gb - 0.48) * 8), 0.01, 0.99);
-  const ensConf = (rfConf + gbConf) / 2;
+  console.log('[ExoScope] Feature vector:', {
+    period_days:         features.period_days,
+    transit_depth_ppm:   features.transit_depth_ppm,
+    transit_duration_hr: features.transit_duration_hr,
+    duty_cycle:          features.duty_cycle,
+    bls_snr:             features.bls_snr,
+    stellar_teff_k:      features.stellar_teff_k,
+    stellar_radius_rsun: features.stellar_radius_rsun,
+  });
 
-  let isExoplanet = ensConf >= 0.5;
-  let confidence = isExoplanet ? ensConf : 1 - ensConf;
-
-  
-  let overridden = false;
-  let overrideReason: string | undefined;
-
-  if (isExoplanet && ensConf < 0.90) {
-    if (features.n_transits === 0 && features.period_days < 2.0) {
-      overridden = true;
-      overrideReason = '0 transits with period < 2 days — stellar rotation noise';
-      isExoplanet = false;
-      confidence = 1 - ensConf;
-    } else if (features.n_transits === 0 && features.transit_depth_ppm < 500) {
-      overridden = true;
-      overrideReason = '0 transits and signal too shallow to be reliable';
-      isExoplanet = false;
-      confidence = 1 - ensConf;
-    } else if (
-      features.n_transits === 0 &&
-      features.mean_transit_duration_hrs === 0 &&
-      features.ls_peak_power < 0.05 &&
-      features.period_days < 12.0
-    ) {
-      overridden = true;
-      overrideReason = '0 transits, no duration, weak periodic signal, short period';
-      isExoplanet = false;
-      confidence = 1 - ensConf;
-    }
+  let output: ort.InferenceSession.OnnxValueMapType;
+  try {
+    output = await session.run(feeds);
+  } catch (e: any) {
+    throw new Error('Model format incompatible — please retrain. ' + e.message);
   }
+
+  const probTensor = output['probabilities'];
+  if (probTensor instanceof ort.Tensor) {
+    const d = probTensor.data as Float32Array;
+    console.log('[ExoScope] Raw probs: class0=', d[0], ' class1=', d[1]);
+  }
+
+  const mlProb = extractProbPlanet(output);
+  const snr    = features.bls_snr;
+
+  console.log('[ExoScope] BLS SNR:', snr.toFixed(2), '| ML prob:', mlProb.toFixed(3));
+
+  const { isExoplanet, confidence } = combineSignals(snr, mlProb);
+
+  // snrScore for display
+  const snrScore = 1 / (1 + Math.exp(-(snr - 8) / 2));
 
   return {
     isExoplanet,
-    confidence: clamp(confidence, 0.01, 0.99),
-    rfConfidence: rfConf,
-    gbConfidence: gbConf,
-    overridden,
-    overrideReason,
+    confidence,
+    rfConfidence: snrScore,      // shows BLS SNR score
+    gbConfidence: mlProb,        // shows ML probability
+    overridden:      false,
+    overrideReason:  undefined,
     features,
   };
 }

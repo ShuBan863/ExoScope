@@ -1,0 +1,1 @@
+{"model_version": "3.4.1", "n_features": 13, "threshold": 0.25, "features": ["period_days", "transit_depth_ppm", "transit_duration_hr", "stellar_teff_k", "stellar_logg", "stellar_radius_rsun", "depth_per_hr", "duty_cycle", "log_depth", "log_period", "log_duration", "depth_x_logg", "period_x_srad"]}
