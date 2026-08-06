@@ -1,7 +1,13 @@
 import * as ort from 'onnxruntime-web';
 import { ExoplanetFeatures } from './exoplanetFeatures';
 
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+// Pin the WASM runtime to the exact version of the JS glue in package.json.
+// The unpinned URL resolves to jsDelivr's "latest", which drifted to 1.27.0 while
+// the bundled glue was 1.24.3. That mismatch made the classifier emit [-p, +p]
+// instead of [p0, p1] — the sum was 0 and class 0 was negative. Nothing threw;
+// results were only still correct because extractProbPlanet reads index [1].
+// Keep this string in sync with the onnxruntime-web version in package.json.
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/';
 
 export interface PredictionResult {
   isExoplanet:     boolean;
