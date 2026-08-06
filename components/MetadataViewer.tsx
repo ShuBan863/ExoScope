@@ -8,7 +8,7 @@ interface MetadataViewerProps {
 }
 
 const MetadataViewer: React.FC<MetadataViewerProps> = ({ primaryHeader, extensionHeader }) => {
-  // Helper to find specific keys safely
+  
   const getValue = (header: FitsHeaderCard[], key: string) => 
     header.find(c => c.key === key)?.value || '-';
 
@@ -23,7 +23,7 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ primaryHeader, extensio
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      {/* Quick Stats Card */}
+      {}
       <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 backdrop-blur-sm">
         <h3 className="text-lg font-semibold text-cyan-400 mb-4 flex items-center gap-2">
           <Info className="w-5 h-5" />
@@ -43,7 +43,7 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ primaryHeader, extensio
         </div>
       </div>
 
-      {/* Raw Header Data Scrollable Area */}
+      {}
       <div className="bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col backdrop-blur-sm h-[320px]">
         <div className="p-4 border-b border-slate-800 bg-slate-900/80 rounded-t-xl">
           <h3 className="text-sm font-semibold text-slate-300">Raw FITS Header (Primary + Extension)</h3>
@@ -53,7 +53,7 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ primaryHeader, extensio
             <div key={idx} className="flex gap-4 border-b border-slate-800/30 pb-0.5 hover:bg-slate-800/50 px-2 rounded">
               <span className="text-cyan-600 w-20 shrink-0 select-all">{card.key}</span>
               <span className="text-emerald-500 select-all">= {String(card.value)}</span>
-              {card.comment && <span className="text-slate-600 truncate flex-1">// {card.comment}</span>}
+              {card.comment && <span className="text-slate-600 truncate flex-1">{card.comment}</span>}
             </div>
           ))}
         </div>

@@ -13,21 +13,17 @@ import {
 import FileUpload from './components/FileUpload';
 import MetadataViewer from './components/MetadataViewer';
 import LightCurveChart from './components/LightCurveChart';
+import ExoplanetResult from './components/ExoplanetResult';
+import ArchiveSearch from './components/ArchiveSearch';
+import { extractFeatures } from './utils/exoplanetFeatures';
+import { runPrediction, PredictionResult } from './utils/exoplanetModel';
 import { ParsedFitsData } from './types';
 
-// =============================================================================
-// DEMO LIGHT CURVE
-// Self-contained component. Zero props. Zero external data dependencies.
-// Generates physically-motivated synthetic light curves and streams them
-// onto the chart via a requestAnimationFrame loop.
-// =============================================================================
-
-// ── Types ────────────────────────────────────────────────────────────────────
 type ScenarioId = 'hot_jupiter' | 'earth_analog' | 'variable_star';
 
 interface DemoPoint {
-  time: number;   // BJD offset (arbitrary, starts at 0)
-  flux: number;   // normalised flux (quiet = 1.0)
+  time: number;   
+  flux: number;   
 }
 
 interface Scenario {
@@ -35,11 +31,10 @@ interface Scenario {
   label:        string;
   description:  string;
   hasTransit:   boolean;
-  transitDepth: number;   // fractional (e.g. 0.02 = 2 %)
+  transitDepth: number;   
   transitDepthPpm: number;
 }
 
-// ── Scenario catalogue ───────────────────────────────────────────────────────
 const SCENARIOS: Scenario[] = [
   {
     id:              'hot_jupiter',
@@ -67,52 +62,44 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
-// ── Gaussian noise via Box-Muller transform ──────────────────────────────────
-// Returns a single normally-distributed random value with mean=0, std=1.
 function gaussianNoise(): number {
-  // Box-Muller: two uniform samples → one Gaussian sample
+  
   let u = 0, v = 0;
-  while (u === 0) u = Math.random(); // avoid log(0)
+  while (u === 0) u = Math.random(); 
   while (v === 0) v = Math.random();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
-// ── Trapezoidal transit model ────────────────────────────────────────────────
-// Returns the fractional flux drop [0, depth] at phase φ (0 = mid-transit).
-// ingress/egress are each `tau` wide in phase units.
-// totalDuration is the full flat-bottom + ingress + egress span in phase.
 function transitProfile(phi: number, depth: number, totalDuration: number, tau: number): number {
   const halfDur = totalDuration / 2;
-  if (Math.abs(phi) > halfDur) return 0;                        // out of transit
+  if (Math.abs(phi) > halfDur) return 0;                        
   const halfFlat = halfDur - tau;
-  if (Math.abs(phi) <= halfFlat) return depth;                  // flat bottom
-  // ingress / egress ramp
+  if (Math.abs(phi) <= halfFlat) return depth;                  
+  
   const ramp = (halfDur - Math.abs(phi)) / tau;
   return depth * Math.max(0, Math.min(1, ramp));
 }
 
-// ── Synthetic light-curve generator ─────────────────────────────────────────
-// N_POINTS: number of cadences to generate (mirrors Kepler LC quarter length)
 const N_POINTS = 420;
 
 function generateScenario(id: ScenarioId): DemoPoint[] {
   const points: DemoPoint[] = [];
 
-  // ── Common parameters ──
-  const dt = 0.049;   // ~30-min cadence in days (Kepler long-cadence ≈ 0.0208 d,
-                       // we use a slightly coarser step so the demo spans ~20 days)
+  
+  const dt = 0.049;   
+                       
 
-  // ── Per-scenario parameters ──
-  let noiseStd        = 0.0010;  // photon + read noise as fraction of flux
-  let varAmp          = 0.0000;  // stellar variability amplitude
-  let varPeriod       = 10.0;    // stellar rotation period (days)
+  
+  let noiseStd        = 0.0010;  
+  let varAmp          = 0.0000;  
+  let varPeriod       = 10.0;    
   let varPhaseOffset  = 0.0;
   let transitDepth    = 0.0;
-  let transitPeriod   = 3.5;     // orbital period (days)
-  let transitDuration = 0.12;    // total transit duration (days)
-  let transitTau      = 0.025;   // ingress/egress duration (days)
-  let transitEpoch    = 2.0;     // time of first mid-transit (days)
-  let trendSlope      = 0.0;     // long-term instrumental drift
+  let transitPeriod   = 3.5;     
+  let transitDuration = 0.12;    
+  let transitTau      = 0.025;   
+  let transitEpoch    = 2.0;     
+  let trendSlope      = 0.0;     
 
   switch (id) {
     case 'hot_jupiter':
@@ -128,13 +115,13 @@ function generateScenario(id: ScenarioId): DemoPoint[] {
       break;
 
     case 'earth_analog':
-      // Earth-like: very shallow transit, more noise, longer period
-      // We compress time so 1 transit is visible in the demo window
+      
+      
       noiseStd        = 0.00120;
       varAmp          = 0.00090;
       varPeriod       = 25.0;
       transitDepth    = 0.00084;
-      transitPeriod   = 18.0;   // compressed from 365d to fit demo window
+      transitPeriod   = 18.0;   
       transitDuration = 0.20;
       transitTau      = 0.040;
       transitEpoch    = 9.0;
@@ -143,7 +130,7 @@ function generateScenario(id: ScenarioId): DemoPoint[] {
 
     case 'variable_star':
       noiseStd        = 0.00080;
-      varAmp          = 0.0140;   // large starspot amplitude
+      varAmp          = 0.0140;   
       varPeriod       = 8.3;
       varPhaseOffset  = 1.2;
       transitDepth    = 0;
@@ -151,20 +138,20 @@ function generateScenario(id: ScenarioId): DemoPoint[] {
       break;
   }
 
-  // ── Generate cadences ──
+  
   for (let i = 0; i < N_POINTS; i++) {
     const t = i * dt;
 
-    // 1. Long-term trend (instrumental drift)
+    
     const trend = 1.0 + trendSlope * t;
 
-    // 2. Stellar variability (rotation modulation)
+    
     const variability = varAmp * Math.sin(
       (2 * Math.PI * t) / varPeriod + varPhaseOffset
     );
 
-    // 3. Transit signal
-    // Phase-fold: φ = (t − t0) mod P,  wrapped to [−P/2, P/2]
+    
+    
     let transitDrop = 0;
     if (transitDepth > 0) {
       let phi = ((t - transitEpoch) % transitPeriod + transitPeriod) % transitPeriod;
@@ -172,10 +159,10 @@ function generateScenario(id: ScenarioId): DemoPoint[] {
       transitDrop = transitProfile(phi, transitDepth, transitDuration, transitTau);
     }
 
-    // 4. Gaussian noise
+    
     const noise = noiseStd * gaussianNoise();
 
-    // 5. Compose: multiply transit (physically correct — it's a fractional occlusion)
+    
     const flux = (trend + variability + noise) * (1.0 - transitDrop);
 
     points.push({ time: t, flux });
@@ -184,54 +171,54 @@ function generateScenario(id: ScenarioId): DemoPoint[] {
   return points;
 }
 
-// ── Animation constants ──────────────────────────────────────────────────────
-const POINTS_PER_FRAME = 7;     // cadences revealed per RAF tick (~60 fps → ~0.9s to fill)
-const HOLD_MS          = 3200;  // ms to hold the completed curve before cycling
+const HOLD_MS = 3200;
+const FRAME_MS = 42;
+const STEPS = 30;
 
-// ── DemoLightCurve component ─────────────────────────────────────────────────
 const DemoLightCurve: React.FC = () => {
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [visibleCount,  setVisibleCount]  = useState(0);
   const [showAnnotation, setShowAnnotation] = useState(false);
 
-  // Full dataset for the current scenario — stored in a ref so RAF closure
-  // always sees the latest version without needing it as a dependency.
   const allPoints = useRef<DemoPoint[]>([]);
   const rafId     = useRef<number | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFrameTime = useRef<number>(0);
 
   const scenario = SCENARIOS[scenarioIndex];
 
-  // ── Advance to the next scenario ──
   const advanceScenario = useCallback(() => {
     setShowAnnotation(false);
     setScenarioIndex(prev => (prev + 1) % SCENARIOS.length);
     setVisibleCount(0);
   }, []);
 
-  // ── Re-generate data whenever the scenario changes ──
   useEffect(() => {
     allPoints.current = generateScenario(scenario.id);
   }, [scenario.id]);
 
-  // ── RAF animation loop ────────────────────────────────────────────────────
   useEffect(() => {
-    // Cancel any previous animation / hold timer on scenario change
     if (rafId.current   !== null) cancelAnimationFrame(rafId.current);
     if (holdTimer.current !== null) clearTimeout(holdTimer.current);
     setShowAnnotation(false);
 
     const total = allPoints.current.length;
+    const pointsPerStep = Math.ceil(total / STEPS);
     let current = 0;
 
-    const tick = () => {
-      current = Math.min(current + POINTS_PER_FRAME, total);
+    const tick = (timestamp: number) => {
+      if (timestamp - lastFrameTime.current < FRAME_MS) {
+        rafId.current = requestAnimationFrame(tick);
+        return;
+      }
+      lastFrameTime.current = timestamp;
+      current = Math.min(current + pointsPerStep, total);
       setVisibleCount(current);
 
       if (current < total) {
         rafId.current = requestAnimationFrame(tick);
       } else {
-        // Animation complete — show annotation, then hold, then cycle
+        
         if (scenario.hasTransit) {
           setShowAnnotation(true);
         }
@@ -241,24 +228,24 @@ const DemoLightCurve: React.FC = () => {
 
     rafId.current = requestAnimationFrame(tick);
 
-    // Cleanup on unmount or before next effect run
+    
     return () => {
       if (rafId.current   !== null) cancelAnimationFrame(rafId.current);
       if (holdTimer.current !== null) clearTimeout(holdTimer.current);
     };
-  }, [scenario.id, advanceScenario]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Note: advanceScenario is stable (useCallback with no deps that change).
+  }, [scenario.id, advanceScenario]); 
+  
 
-  // ── Slice to currently visible points ──
+  
   const chartData = allPoints.current.slice(0, visibleCount);
   const animationComplete = visibleCount >= allPoints.current.length;
 
   return (
     <div className="w-full mb-10">
-      {/* Outer card — mirrors LightCurveChart's card exactly */}
+      {}
       <div className="relative bg-slate-900/50 border border-slate-800 rounded-xl p-6 backdrop-blur-sm overflow-hidden">
 
-        {/* ── DEMO badge (top-left) ── */}
+        {}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 bg-cyan-950 border border-cyan-800 text-cyan-400 text-xs font-semibold px-3 py-1 rounded-full">
@@ -270,7 +257,7 @@ const DemoLightCurve: React.FC = () => {
             </span>
           </div>
 
-          {/* Scenario indicator dots */}
+          {}
           <div className="flex items-center gap-1.5">
             {SCENARIOS.map((s, i) => (
               <div
@@ -285,10 +272,10 @@ const DemoLightCurve: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Chart ── */}
+        {}
         <div className="relative h-64 w-full">
 
-          {/* Transit annotation — fades in when animation completes */}
+          {}
           {scenario.hasTransit && (
             <div
               className="absolute top-2 right-2 z-10 transition-opacity duration-700"
@@ -313,7 +300,7 @@ const DemoLightCurve: React.FC = () => {
               data={chartData}
               margin={{ top: 8, right: 16, left: 8, bottom: 24 }}
             >
-              {/* Exact same grid/axis tokens as LightCurveChart */}
+              {}
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
               <XAxis
                 dataKey="time"
@@ -357,9 +344,9 @@ const DemoLightCurve: React.FC = () => {
                 formatter={(value: number) => [value.toFixed(6), 'Flux']}
                 labelFormatter={(label: number) => `Day ${Number(label).toFixed(2)}`}
               />
-              {/* Reference line at 1.0 — same as LightCurveChart */}
+              {}
               <ReferenceLine y={1} stroke="#334155" strokeDasharray="4 4" />
-              {/* The light curve — same stroke/width as LightCurveChart */}
+              {}
               <Line
                 type="monotone"
                 dataKey="flux"
@@ -367,20 +354,20 @@ const DemoLightCurve: React.FC = () => {
                 strokeWidth={1.5}
                 dot={false}
                 activeDot={{ r: 3, fill: '#fff' }}
-                isAnimationActive={false}   // RAF handles animation, not Recharts
+                isAnimationActive={false}   
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
-        {/* ── Bottom bar: scenario label + progress ── */}
+        {}
         <div className="flex items-center justify-between mt-3">
-          {/* Scenario name pill */}
+          {}
           <span className="text-xs font-medium text-cyan-400 bg-cyan-950/60 border border-cyan-900/50 px-2.5 py-1 rounded-full">
             {scenario.label}
           </span>
 
-          {/* Progress bar */}
+          {}
           <div className="flex items-center gap-2">
             <div className="w-32 h-1 bg-slate-800 rounded-full overflow-hidden">
               <div
@@ -400,7 +387,7 @@ const DemoLightCurve: React.FC = () => {
           </div>
         </div>
 
-        {/* Subtle vignette overlay so it reads as a background preview, not the main UI */}
+        {}
         <div
           className="absolute inset-0 rounded-xl pointer-events-none"
           style={{
@@ -413,28 +400,39 @@ const DemoLightCurve: React.FC = () => {
   );
 };
 
-// =============================================================================
-// APP
-// Only change from original: DemoLightCurve injected between the <p> and
-// the <FileUpload> in the hero section. Everything else is identical.
-// =============================================================================
 function App() {
   const [fitsData, setFitsData] = useState<ParsedFitsData | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
 
-  const handleDataLoaded = (data: ParsedFitsData, name: string) => {
+  const handleDataLoaded = async (data: ParsedFitsData, name: string) => {
     setFitsData(data);
     setFileName(name);
+    setPrediction(null);
+    setMlLoading(true);
+    try {
+      const features = extractFeatures(data);
+      if (features) {
+        const result = await runPrediction(features);
+        setPrediction(result);
+      }
+    } catch (e) {
+      console.error('ML prediction failed:', e);
+    } finally {
+      setMlLoading(false);
+    }
   };
 
   const handleReset = () => {
     setFitsData(null);
     setFileName('');
+    setPrediction(null);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]">
-      {/* Navigation Bar — unchanged */}
+      {}
       <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -447,16 +445,16 @@ function App() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              {/* Removed subtitle */}
+              {}
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
+      {}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Intro / Header — unchanged except DemoLightCurve inserted below <p> */}
+        {}
         {!fitsData && (
           <div className="text-center py-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight mb-6">
@@ -469,17 +467,20 @@ function App() {
               flux without sending data to a server.
             </p>
 
-            {/* ── DEMO: inserted here, above FileUpload ── */}
+            {}
             <DemoLightCurve />
           </div>
         )}
 
-        {/* Upload Area — unchanged */}
+        {}
         {!fitsData ? (
-          <FileUpload onDataLoaded={handleDataLoaded} />
+          <>
+            <FileUpload onDataLoaded={handleDataLoaded} />
+            <ArchiveSearch onDataLoaded={handleDataLoaded} />
+          </>
         ) : (
           <div className="animate-in fade-in zoom-in-95 duration-500">
-            {/* Toolbar */}
+            {}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <FileQuestion className="text-cyan-400" />
@@ -493,13 +494,20 @@ function App() {
               </button>
             </div>
 
-            {/* Analysis Grid */}
+            {}
             <div className="space-y-6">
               <MetadataViewer
                 primaryHeader={fitsData.primaryHeader}
                 extensionHeader={fitsData.extensionHeader}
               />
               <LightCurveChart data={fitsData} />
+              {mlLoading && (
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-8 text-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">Running ML prediction…</p>
+                </div>
+              )}
+              {prediction && <ExoplanetResult result={prediction} />}
             </div>
           </div>
         )}

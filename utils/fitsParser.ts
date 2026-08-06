@@ -1,25 +1,14 @@
 import { FitsHeaderCard, FitsColumnDef, ParsedFitsData } from '../types';
 
-/**
- * Parses a standard FITS file (Kepler/TESS format).
- * This is a custom binary parser that handles standard FITS headers and Binary Tables.
- *
- * Fixes applied:
- *  1. TFORM repeat count now correctly extracted (e.g. '20J' -> repeat=20, byteSize=80)
- *  2. All FITS TFORM type codes have a known byte-size; offset always advances even for
- *     columns we don't read, preventing misalignment of all subsequent columns.
- *  3. Header comment parsing no longer false-triggers on '/' inside quoted string values.
- *  4. BJDREFI/BJDREFF read from header so TESS files display correct time axis.
- */
 export const parseFitsFile = async (buffer: ArrayBuffer): Promise<ParsedFitsData> => {
   const dataView = new DataView(buffer);
   let offset = 0;
 
-  // 1. Parse Primary Header
+  
   const { header: primaryHeader, bytesRead: primaryBytes } = parseHeaderUnit(dataView, offset);
   offset += primaryBytes;
 
-  // Skip primary HDU data block (usually empty for Kepler/TESS)
+  
   const primaryNaxis = Number(getHeaderValue(primaryHeader, 'NAXIS') || 0);
   if (primaryNaxis > 0) {
     let numPixels = 1;
@@ -32,7 +21,7 @@ export const parseFitsFile = async (buffer: ArrayBuffer): Promise<ParsedFitsData
     offset += dataSize + padding;
   }
 
-  // 2. Scan for BINTABLE extension
+  
   let extensionHeader: FitsHeaderCard[] = [];
   let tableData: ParsedFitsData['data'] = {};
   let columns: string[] = [];
@@ -48,22 +37,22 @@ export const parseFitsFile = async (buffer: ArrayBuffer): Promise<ParsedFitsData
       extensionHeader = header;
       offset += bytesRead;
 
-      const nAxis1 = Number(getHeaderValue(header, 'NAXIS1') || 0); // bytes per row
-      const nAxis2 = Number(getHeaderValue(header, 'NAXIS2') || 0); // number of rows
+      const nAxis1 = Number(getHeaderValue(header, 'NAXIS1') || 0); 
+      const nAxis2 = Number(getHeaderValue(header, 'NAXIS2') || 0); 
       const tFields = Number(getHeaderValue(header, 'TFIELDS') || 0);
 
       rowCount = nAxis2;
 
-      // Parse column definitions — offsets are now correct for all TFORM types
+      
       const colDefs = parseColumnDefinitions(header, tFields, nAxis1);
       columns = colDefs.filter(c => c.dataType !== 'UNKNOWN').map(c => c.type || c.label);
 
-      // Read binary data
+      
       tableData = readBinaryTable(dataView, offset, nAxis2, nAxis1, colDefs);
       break;
 
     } else {
-      // Skip this HDU
+      
       offset += bytesRead;
       const naxis = Number(getHeaderValue(header, 'NAXIS') || 0);
       let dataSize = 0;
@@ -75,7 +64,7 @@ export const parseFitsFile = async (buffer: ArrayBuffer): Promise<ParsedFitsData
         const bitpix = Number(getHeaderValue(header, 'BITPIX') || 0);
         const pCount = Number(getHeaderValue(header, 'PCOUNT') || 0);
         const gCount = Number(getHeaderValue(header, 'GCOUNT') || 1);
-        // Correct FITS standard formula: gCount * (dataBytes + pCount)
+        
         dataSize = gCount * (Math.abs(bitpix) * numPixels / 8 + pCount);
       }
       const padding = (2880 - (dataSize % 2880)) % 2880;
@@ -102,10 +91,6 @@ const getHeaderValue = (cards: FitsHeaderCard[], key: string): string | number |
   return card ? card.value : null;
 };
 
-// ---------------------------------------------------------------------------
-// Header parser
-// FIX: comment detection no longer false-triggers on '/' inside quoted strings.
-// ---------------------------------------------------------------------------
 const parseHeaderUnit = (view: DataView, startOffset: number) => {
   const cards: FitsHeaderCard[] = [];
   let offset = startOffset;
@@ -133,37 +118,37 @@ const parseHeaderUnit = (view: DataView, startOffset: number) => {
         const afterEquals = line.substring(valueIndicatorIdx + 1).trimStart();
 
         if (afterEquals.startsWith("'")) {
-          // -----------------------------------------------------------------
-          // String value: find the CLOSING quote first, then look for '/'
-          // FITS spec: a literal single-quote in a string is represented as ''
-          // We scan forward handling '' pairs to find the real closing quote.
-          // -----------------------------------------------------------------
+          
+          
+          
+          
+          
           let strStart = line.indexOf("'", valueIndicatorIdx + 1);
           let strEnd = strStart + 1;
           while (strEnd < line.length) {
             if (line[strEnd] === "'") {
-              // Check for escaped quote ''
+              
               if (strEnd + 1 < line.length && line[strEnd + 1] === "'") {
-                strEnd += 2; // skip ''
+                strEnd += 2; 
               } else {
-                break; // real closing quote
+                break; 
               }
             } else {
               strEnd++;
             }
           }
-          // Extract raw string content and unescape ''
+          
           const rawStr = line.substring(strStart + 1, strEnd).replace(/''/g, "'").trimEnd();
           value = rawStr;
 
-          // Comment starts after the closing quote
+          
           const commentIdx = line.indexOf('/', strEnd + 1);
           if (commentIdx > -1) {
             comment = line.substring(commentIdx + 1).trim();
           }
 
         } else {
-          // Numeric / boolean / other — safe to search for '/' directly
+          
           const commentIdx = line.indexOf('/', valueIndicatorIdx + 1);
           let valueStr = '';
           if (commentIdx > -1) {
@@ -195,40 +180,29 @@ const parseHeaderUnit = (view: DataView, startOffset: number) => {
   return { header: cards, bytesRead: totalBytesRead + padding };
 };
 
-// ---------------------------------------------------------------------------
-// Column definition parser
-//
-// FIX 1: repeat count extracted from TFORM correctly.
-//   TFORM regex /^(\d*)([A-Z])/ splits e.g. '20J' -> repeat=20, typeChar='J'
-//   An empty repeat (e.g. '1D', 'D') defaults to 1.
-//
-// FIX 2: ALL FITS type codes now have a byte size so offset always advances,
-//   even for columns we cannot read as scalars. This prevents misalignment.
-//   Unreadable columns are stored with dataType='UNKNOWN' and skipped in readBinaryTable.
-// ---------------------------------------------------------------------------
 const tformByteSize = (typeChar: string, repeat: number): number => {
   switch (typeChar) {
-    case 'D': return repeat * 8;  // double
-    case 'E': return repeat * 4;  // float
-    case 'J': return repeat * 4;  // 32-bit int
-    case 'K': return repeat * 8;  // 64-bit int
-    case 'I': return repeat * 2;  // 16-bit int
-    case 'B': return repeat * 1;  // 8-bit unsigned int
-    case 'L': return repeat * 1;  // logical (boolean)
-    case 'A': return repeat * 1;  // ASCII char
-    case 'X': return Math.ceil(repeat / 8); // bit array
-    case 'C': return repeat * 8;  // complex single (2×float)
-    case 'M': return repeat * 16; // complex double (2×double)
-    case 'P': return 8;           // variable-length array descriptor (32-bit)
-    case 'Q': return 16;          // variable-length array descriptor (64-bit)
-    default:  return 0;           // unknown — caller must handle
+    case 'D': return repeat * 8;  
+    case 'E': return repeat * 4;  
+    case 'J': return repeat * 4;  
+    case 'K': return repeat * 8;  
+    case 'I': return repeat * 2;  
+    case 'B': return repeat * 1;  
+    case 'L': return repeat * 1;  
+    case 'A': return repeat * 1;  
+    case 'X': return Math.ceil(repeat / 8); 
+    case 'C': return repeat * 8;  
+    case 'M': return repeat * 16; 
+    case 'P': return 8;           
+    case 'Q': return 16;          
+    default:  return 0;           
   }
 };
 
 const parseColumnDefinitions = (
   header: FitsHeaderCard[],
   tFields: number,
-  nAxis1: number   // total row bytes from header — used as cross-check
+  nAxis1: number   
 ): FitsColumnDef[] => {
   const cols: FitsColumnDef[] = [];
   let currentOffset = 0;
@@ -238,15 +212,15 @@ const parseColumnDefinitions = (
     const form = getHeaderValue(header, `TFORM${i}`) as string || '';
     const unit = getHeaderValue(header, `TUNIT${i}`) as string || '';
 
-    // --- FIX 1: parse repeat count and type character separately ---
+    
     const tformMatch = form.trim().match(/^(\d*)([A-Z])/);
     const repeat = tformMatch && tformMatch[1] ? parseInt(tformMatch[1], 10) : 1;
     const typeChar = tformMatch ? tformMatch[2] : '';
 
-    // --- FIX 2: always compute byte size so offset stays correct ---
+    
     const totalBytes = tformByteSize(typeChar, repeat);
 
-    // Map to readable dataType (only scalar columns we can actually read)
+    
     let dataType: FitsColumnDef['dataType'] = 'UNKNOWN';
     if (repeat === 1) {
       switch (typeChar) {
@@ -255,11 +229,11 @@ const parseColumnDefinitions = (
         case 'J': dataType = 'INT';    break;
         case 'I': dataType = 'SHORT';  break;
         case 'B': dataType = 'BYTE';   break;
-        // K (int64) would lose precision in JS Number — leave as UNKNOWN for safety
+        
       }
     }
-    // Array columns (repeat > 1) are intentionally left as UNKNOWN;
-    // their bytes still count toward the offset below.
+    
+    
 
     cols.push({
       label: type,
@@ -270,18 +244,18 @@ const parseColumnDefinitions = (
       dataType,
     });
 
-    // Always advance, even for UNKNOWN types — this is the critical fix
+    
     if (totalBytes > 0) {
       currentOffset += totalBytes;
     } else {
-      // Absolute fallback: if TFORM is genuinely unrecognised, we cannot
-      // recover safely. Log a warning and stop processing further columns.
+      
+      
       console.warn(`[fitsParser] Unrecognised TFORM '${form}' for column ${type}. Halting column parse.`);
       break;
     }
   }
 
-  // Sanity check: our computed row size should match NAXIS1
+  
   if (nAxis1 > 0 && currentOffset !== nAxis1) {
     console.warn(
       `[fitsParser] Computed row size (${currentOffset} B) ≠ NAXIS1 (${nAxis1} B). ` +
@@ -292,9 +266,6 @@ const parseColumnDefinitions = (
   return cols;
 };
 
-// ---------------------------------------------------------------------------
-// Binary table reader — unchanged except it now skips UNKNOWN columns cleanly
-// ---------------------------------------------------------------------------
 const readBinaryTable = (
   view: DataView,
   startOffset: number,
@@ -304,7 +275,7 @@ const readBinaryTable = (
 ): Record<string, (number | null)[]> => {
 
   const result: Record<string, (number | null)[]> = {};
-  // Only allocate arrays for columns we can actually read
+  
   cols
     .filter(c => c.dataType !== 'UNKNOWN')
     .forEach(c => result[c.type || c.label] = []);
@@ -313,7 +284,7 @@ const readBinaryTable = (
     const rowStart = startOffset + r * rowBytes;
 
     cols.forEach(col => {
-      if (col.dataType === 'UNKNOWN') return; // skip — offset already accounted for
+      if (col.dataType === 'UNKNOWN') return; 
 
       const pos = rowStart + col.offset;
       let val: number | null = null;

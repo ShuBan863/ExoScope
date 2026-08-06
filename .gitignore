@@ -1,1 +1,13 @@
-node_modules
+node_modules/
+dist/
+.env
+.env.local
+*.local
+.DS_Store
+
+# onnxruntime-web distribution files (~96 MB).
+# Not committed: exoplanetModel.ts loads the WASM runtime from a CDN, so these
+# are never served. They were only needed by the removed v2 predictor, which set
+# ort.env.wasm.wasmPaths = "/". Restore with `npm i` + copy from node_modules
+# if the runtime is ever switched back to self-hosting.
+public/ort*

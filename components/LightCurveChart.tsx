@@ -17,25 +17,20 @@ interface LightCurveChartProps {
   data: ParsedFitsData;
 }
 
-// ---------------------------------------------------------------------------
-// Largest-Triangle-Three-Buckets (LTTB) downsampling
-// Preserves the visual shape of the curve while reducing point count.
-// Reference: Sveinn Steinarsson, 2013.
-// ---------------------------------------------------------------------------
 function lttbDownsample(points: DataPoint[], threshold: number): DataPoint[] {
   const n = points.length;
   if (n <= threshold) return points;
 
   const sampled: DataPoint[] = [points[0]];
   const bucketSize = (n - 2) / (threshold - 2);
-  let a = 0; // index of last selected point
+  let a = 0; 
 
   for (let i = 0; i < threshold - 2; i++) {
-    // Bucket boundaries
+    
     const bucketStart = Math.floor((i + 1) * bucketSize) + 1;
     const bucketEnd   = Math.min(Math.floor((i + 2) * bucketSize) + 1, n - 1);
 
-    // Average of NEXT bucket (used as the "far" point for triangle area)
+    
     const nextBucketStart = bucketEnd;
     const nextBucketEnd   = Math.min(Math.floor((i + 3) * bucketSize) + 1, n - 1);
     let avgTime = 0, avgFlux = 0, nextCount = 0;
@@ -46,7 +41,7 @@ function lttbDownsample(points: DataPoint[], threshold: number): DataPoint[] {
     }
     if (nextCount > 0) { avgTime /= nextCount; avgFlux /= nextCount; }
 
-    // Point A (last selected)
+    
     const aPoint = points[a];
     let maxArea = -1, maxIdx = bucketStart;
 
@@ -66,7 +61,6 @@ function lttbDownsample(points: DataPoint[], threshold: number): DataPoint[] {
   return sampled;
 }
 
-// Median of an array (fast, non-mutating)
 function median(arr: number[]): number {
   if (arr.length === 0) return 1;
   const sorted = [...arr].sort((a, b) => a - b);
@@ -74,16 +68,13 @@ function median(arr: number[]): number {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 const MAX_DISPLAY_POINTS = 3000;
 
 const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
   const [useRawFlux, setUseRawFlux]       = useState(false);
   const [normalized, setNormalized]       = useState(true);
 
-  // --- FIX: read BJD reference epoch from header (Kepler=2454833, TESS=2457000) ---
+  
   const bjdRef = useMemo(() => {
     const allCards = [...data.primaryHeader, ...data.extensionHeader];
     const bjdrefi = allCards.find(c => c.key === 'BJDREFI');
@@ -93,11 +84,11 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
       const fracPart = bjdreff ? Number(bjdreff.value) : 0;
       return intPart + fracPart;
     }
-    // Fallback: try TSTART keyword's context or default to Kepler epoch
+    
     return 2454833;
   }, [data]);
 
-  // --- FIX: flux normalization + downsampling ---
+  
   const { chartData, wasDownsampled, originalCount } = useMemo(() => {
     const timeCol = data.columns.find(c => c.includes('TIME'));
     const fluxCol = useRawFlux
@@ -127,8 +118,8 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
 
     raw.sort((a, b) => a.time - b.time);
 
-    // Normalize: divide by median so quiet level ≈ 1.0
-    // This makes transit dips visually obvious as drops below 1.0.
+    
+    
     let points = raw;
     if (normalized && validFluxes.length > 0) {
       const med = median(validFluxes);
@@ -166,7 +157,7 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
 
   return (
     <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 backdrop-blur-sm">
-      {/* Header row */}
+      {}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
@@ -181,9 +172,9 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
           </p>
         </div>
 
-        {/* Controls */}
+        {}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Normalization toggle */}
+          {}
           <div className="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
             <button
               onClick={() => setNormalized(true)}
@@ -199,7 +190,7 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
             </button>
           </div>
 
-          {/* Flux type toggle */}
+          {}
           <div className="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
             <button
               onClick={() => setUseRawFlux(false)}
@@ -242,7 +233,7 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
               formatter={(value: number) => tooltipFluxFmt(value)}
               labelFormatter={(label) => `Time: ${Number(label).toFixed(4)}`}
             />
-            {/* Reference line at 1.0 when normalized — shows where transit floor is */}
+            {}
             {normalized && (
               <ReferenceLine y={1} stroke="#334155" strokeDasharray="4 4" />
             )}
@@ -253,7 +244,7 @@ const LightCurveChart: React.FC<LightCurveChartProps> = ({ data }) => {
               strokeWidth={1.5}
               dot={false}
               activeDot={{ r: 4, fill: '#fff' }}
-              animationDuration={800}
+              isAnimationActive={false}
             />
             <Brush
               dataKey="time"

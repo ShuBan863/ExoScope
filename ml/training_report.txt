@@ -1,0 +1,19 @@
+ExoScope Model Training Report v3.0
+====================================
+
+Accuracy  : 0.8867
+ROC-AUC   : 0.9589
+CV AUC    : 0.9513 ± 0.0053
+Threshold : 0.539
+
+Feature importances:
+  duty_cycle                     0.3606
+  log_depth                      0.1281
+  stellar_teff_k                 0.0964
+  transit_duration_hr            0.0796
+  depth_per_hr                   0.0694
+  transit_depth_ppm              0.0670
+  stellar_logg                   0.0662
+  stellar_radius_rsun            0.0595
+  log_period                     0.0393
+  period_days                    0.0339
