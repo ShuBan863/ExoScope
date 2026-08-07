@@ -99,54 +99,56 @@ median window, which suppresses the measured depth.
 
 ## Step 3 — Search for a repeating dip (BLS)
 
-**`utils/exoplanetFeatures.ts:57-117`** (`runBLS`)
+**`utils/exoplanetFeatures.ts:57-190`** (`runBLS`)
 
-A transit is defined by three unknowns that must be guessed *together*:
-**period** (how often), **duration** (how long), **phase** (when the first one
-starts). BLS — Box Least Squares — brute-forces combinations of all three.
-
-For each combination it splits every measurement into "in transit" or "out of
-transit", compares the two averages, and scores the result:
+A transit is defined by three unknowns that must be found *together*:
+**period** (how often), **duration** (how long), **epoch** (when it happens).
+BLS — Box Least Squares — searches combinations of all three, scoring each by
+how much dimmer the in-transit points are than the rest:
 
 ```
 depth = mean(out) − mean(in)
-power = depth · √(N_in) / σ          // exoplanetFeatures.ts:104
+power = depth · √(N_in) / σ
 ```
 
-The grid searched (`:67-72`):
+Rather than rescan every data point for every trial, the search folds the light
+curve into `N_BINS = 400` phase bins once per trial period, then evaluates every
+(duration, epoch) pair against those bins using prefix sums — O(1) per pair.
+Bins are duplicated end-to-end before the prefix pass so a transit straddling
+phase 1.0 → 0.0 is still one contiguous slice, with no branch in the hot loop.
 
-| Dial | Count | Values |
+Three passes:
+
+| Pass | Trials | Purpose |
 |---|---|---|
-| Period | 1,000 | log-spaced, 0.3 d → min(baseline × 0.49, 500 d) |
-| Duration | 12 | fixed fractions of period, 0.004 → 0.078 |
-| Phase | 20 | evenly spaced across one period |
+| 1. Coarse | 500 log-spaced periods, 0.3 d → min(baseline × 0.49, 500 d) | Locate the neighbourhood |
+| 2. Refine | 50–400 periods in a ±3% window | Pin the period precisely |
+| 3. Sub-harmonic | P/2 and P/3, each refined | Reject 2:1 and 3:1 aliases |
 
-That is 240,000 combinations, each scanning every data point.
+Pass 2 exists because the coarse grid alone lands ~1% off, and small period
+errors compound: on KIC 3115833 a 0.0195 d offset accumulates to 1.16× the
+transit duration across 8.7 orbits, smearing the transits out of the window.
+The step size is chosen so drift over the full baseline stays under 10% of one
+transit duration.
 
-### ⚠️ This grid is too coarse — it is the project's main open bug
+Pass 3 exists because a real transit at period P also produces power at 2P and
+3P — folding at a multiple still stacks a subset of transits coherently — and a
+coarse grid actively *favours* the alias, since longer periods fit fewer cycles
+into the baseline and so accumulate less drift from grid error. Without this
+pass the search reports 20.360 d for KIC 3115833, exactly twice the truth. A
+genuinely long-period planet is unaffected: no transits exist at the halved
+spacing, so the sub-harmonic simply scores worse and loses.
 
-**Phase.** `N_PHASES = 20` regardless of period. At P = 10.18 d that places a
-trial every ~12 hours while hunting a 3.5-hour dip, so the search can step
-straight over a real transit.
+Measured on the bundled `KIC 3115833` example (true period 10.1816 d):
 
-**Period.** 1,000 log-spaced periods don't land on the true one. For
-KIC 3115833 the nearest grid period is 10.20109 d against a true 10.1816 d. Over
-the 8.7 orbits in one quarter that 0.0195 d error accumulates to 0.17 d of
-drift — **1.16× the transit duration** — so the transits smear out of the box.
+| | Period found | SNR | Search time |
+|---|---|---|---|
+| Previous 1000 × 12 × 20 scan | 7.99 d | 4.80 | 8,689 ms |
+| Current binned search | **10.1808 d** | **10.60** | **107 ms** |
 
-Measured on the bundled `KIC 3115833` example:
-
-| Search | SNR found |
-|---|---|
-| At the true period, fine phase sampling (400) | **10.15** |
-| At the true period, shipped 20-phase grid | **1.47** |
-| Shipped full search (finds P = 7.99 d) | **4.80** |
-
-The signal is there. The search cannot see it.
-
-**Consequence:** the bundled "Planet Candidate" example currently returns
-**"No Exoplanet Detected" at 45%**. With a correct SNR of ~10.15 the same ML
-output produces ~79% "detected". See *Known issues* below.
+`DUR_FRACS`, the minimum point counts (≥3 in, ≥10 out), and the `power` formula
+are unchanged from the previous implementation — `combineSignals` hardcodes
+SNR 8 as marginal and 15 as strong, so the output scale had to be preserved.
 
 ---
 
@@ -263,14 +265,20 @@ a removed predictor that set `wasmPaths = "/"`.
 
 Ordered by impact.
 
-1. **BLS grid too coarse** (`exoplanetFeatures.ts:67-68`) — see Step 3. Causes
-   the bundled positive example to return a false negative. Fixing the phase
-   count alone is ~6.7× slower; the real fix is phase-binning the fold instead
-   of rescanning every point per trial.
+1. **False positives now sit close to the decision threshold.** With the search
+   fixed, KIC 2445129 (a known false positive) scores 42% against a 45% cutoff —
+   a 3-point margin, where the old, blind search left 25 points. The narrowing
+   comes from the classifier, not the search: it now reads the recovered signal
+   (P = 3.41 d, 513 ppm, 0.82 hr) as fairly planet-like, returning 0.77 where it
+   previously returned 0.28. This is the train/serve skew in issue 5 becoming
+   visible. Re-tuning the `0.6 / 0.4` blend and the `0.45` cutoff in
+   `combineSignals` against a labelled sample is the natural next step — the
+   current constants were chosen when the SNR term was effectively noise.
 
-2. **~9 second UI freeze.** `extractFeatures` is synchronous on the main thread
-   (`App.tsx:416`) with no worker and no yields. Measured 3.3 s for 1,626 rows,
-   8.7 s for 4,075 rows.
+2. **~180 ms UI freeze.** `extractFeatures` is synchronous on the main thread
+   (`App.tsx:416`) with no worker and no yields. Down from ~9 s before the
+   search was rewritten; longest blocking task now measured at 178 ms, which is
+   no longer perceptible, but a Web Worker would still be the correct structure.
 
 3. **Archive search only works on Vercel.** `ArchiveSearch.tsx:160,177` requests
    `/api/mast`, implemented as a Vercel function in `api/mast.ts`. In `npm run

@@ -92,9 +92,12 @@ Files follow the pattern `kplr{9-digit KIC}-{timestamp}_llc.fits`.
 1. The FITS binary table is parsed for the `TIME` and `PDCSAP_FLUX` columns.
 2. Flux is normalized and **detrended** with a 0.75-day sliding median, which
    removes slow stellar variability while preserving a sharp transit dip.
-3. **BLS** brute-forces 1,000 candidate periods × 12 durations × 20 phases,
-   scoring each by how much dimmer the in-transit points are than the rest.
-   The best combination gives period, depth, duration and a signal-to-noise ratio.
+3. **BLS** searches for a repeating dip. Each candidate period folds the light
+   curve into 400 phase bins once, then every duration and epoch is scored
+   against those bins via prefix sums. A coarse scan of 500 periods locates the
+   neighbourhood, a fine pass pins the period down, and a sub-harmonic check
+   rejects 2:1 and 3:1 aliases. Yields period, depth, duration and a
+   signal-to-noise ratio in ~100 ms.
 4. Thirteen features — the BLS results, stellar parameters from the FITS header,
    and derived ratios — are fed to a 150-tree RandomForest exported to ONNX.
 5. The BLS signal-to-noise and the classifier probability are blended
@@ -111,12 +114,12 @@ excluded.
 This is a student project with known, documented problems. Be skeptical of its
 output.
 
-- **The transit search is under-sampled.** Its phase and period grids are too
-  coarse for typical Kepler periods, so it can miss real transits — including
-  in the bundled positive example. Quantified in
-  [ARCHITECTURE.md](ARCHITECTURE.md#-this-grid-is-too-coarse--it-is-the-projects-main-open-bug).
-- **Analysis freezes the tab for ~9 seconds.** The search runs synchronously on
-  the main thread.
+- **False positives land near the decision threshold.** The bundled false
+  positive scores 42% against a 45% cutoff. The blend weights and cutoff in
+  `combineSignals` were tuned when the transit search was much less sensitive,
+  and are due a re-tune against a labelled sample.
+- **Analysis blocks the tab for ~180 ms.** Short enough not to notice, but the
+  search still runs on the main thread rather than in a Web Worker.
 - **There is no validated accuracy figure.** Earlier versions of this README
   quoted numbers that cannot be reproduced from anything in this repository.
   Measuring a real one requires evaluating the corrected pipeline against a
