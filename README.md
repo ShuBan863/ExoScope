@@ -1,152 +1,142 @@
 # ExoScope
 
-A browser-based tool for exploring NASA Kepler light curve data. Upload a `.fits` file to parse the binary data, visualize the light curve, and get an ML-powered exoplanet prediction — all without sending data to a server.
+A browser-based tool for exploring NASA Kepler light curve data. Load a `.fits`
+file to parse the binary format, plot the light curve, search it for a repeating
+transit signal, and get a classifier's read on whether it looks like a planet.
+Nothing is uploaded — the file is parsed and analysed entirely in your browser.
 
 **Built by Shuban Langadi & Nafisur Rahman** — ISTA Period 4
 
----
-
-## What It Does
-
-- Parses NASA Kepler `.fits` binary files entirely in the browser (no backend)
-- Displays FITS header metadata: object name, telescope, instrument, observation date
-- Renders an interactive light curve chart with LTTB downsampling (up to 65,000 points)
-- Toggles between PDCSAP (corrected) and SAP (raw) flux, normalized or raw counts
-- Runs a machine learning model to predict whether an exoplanet is present
-- Shows a confidence score with per-model breakdown (Random Forest + Gradient Boosting ensemble)
+For how the code works internally, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ---
 
-## Tech Stack
+## What it does
+
+- Parses Kepler `.fits` binary tables in the browser, with no backend
+- Displays FITS header metadata — object, telescope, instrument, observation date
+- Plots flux vs. time, LTTB-downsampled to 3,000 points, with a zoom brush
+- Toggles PDCSAP (corrected) vs. SAP (raw) flux, normalized vs. raw counts
+- Runs a **Box Least Squares** search for a repeating transit dip
+- Scores the result with a **RandomForest** classifier trained on NASA KOI data
+- Shows a verdict, a confidence score, and generated reasoning citing the
+  measured depth, duration, duty cycle, and stellar parameters
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| UI framework | React 19 + TypeScript |
-| Build tool | Vite 6 |
+| UI | React 19 + TypeScript |
+| Build | Vite 6 |
 | Charts | Recharts |
 | Icons | Lucide React |
-| Styling | Tailwind CSS |
-| ML inference | Custom TypeScript scoring (trained weights from scikit-learn) |
+| Styling | Tailwind (via CDN) |
+| ML inference | onnxruntime-web (WASM) |
+| Model training | scikit-learn → ONNX via skl2onnx |
 
 ---
 
-## Project Structure
+## Running locally
 
-```
-ExoScope/
-├── App.tsx                        # Root component, demo light curve, routing
-├── index.tsx                      # React entry point
-├── index.html                     # HTML shell
-├── types.ts                       # Shared TypeScript interfaces
-├── vite.config.ts                 # Vite configuration
-├── package.json
-├── tsconfig.json
-├── components/
-│   ├── FileUpload.tsx             # Drag-and-drop .fits file upload
-│   ├── LightCurveChart.tsx        # Interactive flux vs time chart
-│   ├── MetadataViewer.tsx         # FITS header display
-│   └── ExoplanetResult.tsx        # ML prediction result card
-└── utils/
-    ├── fitsParser.ts              # Custom FITS binary parser (TypeScript)
-    ├── exoplanetFeatures.ts       # Extracts 26 numerical features from light curve
-    └── exoplanetModel.ts          # RF + GB ensemble scoring, physics override rules
-```
-
----
-
-## Prerequisites
-
-- **Node.js** v18 or higher — [nodejs.org](https://nodejs.org)
-- **npm** (comes with Node)
-
-Check your version:
-```bash
-node --version
-npm --version
-```
-
----
-
-## Installation
-
-Clone the repo and install dependencies:
+Requires Node.js 18+.
 
 ```bash
-git clone https://github.com/ShuBan863/ExoScope.git
-cd ExoScope
 npm install
-```
-
----
-
-## Running Locally
-
-```bash
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
+Open <http://localhost:3000>.
 
-To stop the server, press `Ctrl+C` in the terminal.
+Two example files are built into the home page — one planet candidate
+(KIC 3115833) and one false positive (KIC 2445129) — so you can try it without
+downloading anything.
 
----
+> **Note:** the NASA archive search on the home page calls `/api/mast`, which is
+> a Vercel serverless function. It returns HTTP 500 under `npm run dev` and does
+> not work on GitHub Pages. Use the example buttons or a local file instead. See
+> issue 3 in [ARCHITECTURE.md](ARCHITECTURE.md#known-issues).
 
-## Getting a `.fits` File to Test With
-
-Two example files (KIC 3115833 — confirmed planet, KIC 2445129 — false positive) are available directly on the ExoScope home page and can be loaded with one click.
-
-Kepler light curve files are free to download from NASA's MAST archive:
-
-1. Go to [archive.stsci.edu/kepler/data_search](https://archive.stsci.edu/kepler/data_search/search.php)
-2. Search for a KIC ID (e.g. `2306756` — a confirmed planet host, Kepler-18)
-3. Download any file ending in `llc.fits` (long-cadence light curve)
-4. Drag it into ExoScope
-
-Or download directly from the MAST bulk archive:
-```
-https://archive.stsci.edu/pub/kepler/lightcurves/
-```
-
-Files follow the naming pattern: `kplr{KIC_ID}-{quarter}_llc.fits`
-
----
-
-## How the ML Works
-
-1. The FITS binary table is parsed to extract the TIME and PDCSAP_FLUX columns
-2. **26 numerical features** are computed from the flux array — transit depth, period (via Lomb-Scargle periodogram), transit shape score, even/odd depth ratio, and others
-3. Two scoring functions — `rfScore()` (Random Forest) and `gbScore()` (Gradient Boosting) — run on those features using weights derived from a real scikit-learn model trained on 7,489 labeled Kepler files
-4. Scores are averaged (soft voting ensemble) to produce a 0–100% confidence value
-5. Three physics-based override rules can force a NO PLANET result regardless of score (e.g. if no transits were detected but the estimated period is very short)
-
-Training data: 2,805 confirmed planets + 4,684 false positives from the NASA KOI Cumulative Catalog.  
-Training accuracy: 99.5% (RF), 99.4% (GB). Real-world accuracy on 170 Kepler files: ~80.9%.
-
----
-
-## Build for Production
+### Production build
 
 ```bash
 npm run build
 ```
 
-Output goes to `dist/`. You can serve it with any static file host.
+Output goes to `dist/`.
 
 ---
 
-## Known Limitations
+## Getting your own `.fits` files
 
-- Only tested with Kepler long-cadence (llc) files. TESS files may work but are not guaranteed.
-- ML accuracy drops on single-quarter files where a planet's orbital period is longer than the observation window — the model may miss the transit entirely.
-- Very short period signals (< 1 day) may alias with stellar rotation.
+Kepler light curves are free from NASA's MAST archive:
+
+1. Go to [archive.stsci.edu/kepler/data_search](https://archive.stsci.edu/kepler/data_search/search.php)
+2. Search a KIC ID (e.g. `2306756`, the Kepler-18 host)
+3. Download a file ending in `llc.fits` (long cadence)
+4. Drag it into ExoScope
+
+Or fetch directly:
+
+```bash
+curl -LO "https://archive.stsci.edu/pub/kepler/lightcurves/0024/002445129/kplr002445129-2009166043257_llc.fits"
+```
+
+Files follow the pattern `kplr{9-digit KIC}-{timestamp}_llc.fits`.
+
+---
+
+## How the detection works
+
+1. The FITS binary table is parsed for the `TIME` and `PDCSAP_FLUX` columns.
+2. Flux is normalized and **detrended** with a 0.75-day sliding median, which
+   removes slow stellar variability while preserving a sharp transit dip.
+3. **BLS** brute-forces 1,000 candidate periods × 12 durations × 20 phases,
+   scoring each by how much dimmer the in-transit points are than the rest.
+   The best combination gives period, depth, duration and a signal-to-noise ratio.
+4. Thirteen features — the BLS results, stellar parameters from the FITS header,
+   and derived ratios — are fed to a 150-tree RandomForest exported to ONNX.
+5. The BLS signal-to-noise and the classifier probability are blended
+   `0.6 / 0.4` and thresholded at `0.45` to produce the final verdict.
+
+**Training data:** 7,586 Kepler Objects of Interest from the NASA KOI Cumulative
+Catalog — 2,747 `CONFIRMED` and 4,839 `FALSE POSITIVE`. `CANDIDATE` entries are
+excluded.
+
+---
+
+## Status and limitations
+
+This is a student project with known, documented problems. Be skeptical of its
+output.
+
+- **The transit search is under-sampled.** Its phase and period grids are too
+  coarse for typical Kepler periods, so it can miss real transits — including
+  in the bundled positive example. Quantified in
+  [ARCHITECTURE.md](ARCHITECTURE.md#-this-grid-is-too-coarse--it-is-the-projects-main-open-bug).
+- **Analysis freezes the tab for ~9 seconds.** The search runs synchronously on
+  the main thread.
+- **There is no validated accuracy figure.** Earlier versions of this README
+  quoted numbers that cannot be reproduced from anything in this repository.
+  Measuring a real one requires evaluating the corrected pipeline against a
+  labelled sample.
+- **The classifier is applied outside its training distribution.** It learned
+  from NASA catalog values measured across the full mission; it receives
+  single-quarter BLS estimates. It also only ever saw objects that had already
+  passed NASA's detection pipeline.
+- Only tested on Kepler long-cadence (`llc`) files. TESS may work; untested.
+- Single-quarter data cannot show planets whose orbital period exceeds the
+  ~90-day observation window.
 
 ---
 
 ## References
 
-- NASA FITS Documentation — [fits.gsfc.nasa.gov](https://fits.gsfc.nasa.gov/fits_documentation.html)
-- Kepler Mission Data — [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/docs/KeplerMission.html)
-- MAST Kepler Archive — [archive.stsci.edu](https://archive.stsci.edu/pub/kepler/lightcurves)
-- Steinarsson, S. — *Downsampling Time Series for Visual Representation*, University of Iceland, 2013
-- Pedregosa et al. — *Scikit-learn: Machine Learning in Python*, JMLR 12, 2011, pp. 2825–2830
-- Recharts — [recharts.org](https://recharts.org)
+- FITS standard — [fits.gsfc.nasa.gov](https://fits.gsfc.nasa.gov/fits_documentation.html)
+- Kepler mission data — [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/docs/KeplerMission.html)
+- MAST Kepler archive — [archive.stsci.edu](https://archive.stsci.edu/pub/kepler/lightcurves)
+- Kovács, Zucker & Mazeh (2002) — *A box-fitting algorithm in the search for periodic transits*, A&A 391, 369
+- Winn (2010) — *Transits and Occultations*, in *Exoplanets* (transit duration relation)
+- Steinarsson (2013) — *Downsampling Time Series for Visual Representation*, University of Iceland (LTTB)
+- Pedregosa et al. (2011) — *Scikit-learn: Machine Learning in Python*, JMLR 12, 2825–2830
