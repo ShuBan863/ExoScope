@@ -1,14 +1,14 @@
 /**
- * ExoScope Feature Extractor v4.0
+ * ExoScope feature extraction.
  *
  * Pipeline:
- *   1. Load & clean flux
- *   2. Detrend with sliding median (removes stellar variability)
- *   3. BLS on detrended flux (1000 periods, fine duration grid, 20 phases)
- *   4. Compute features for ML model
+ *   1. Load & clean flux (drop bad cadences, sort by time, normalise)
+ *   2. Detrend with a 0.75-day sliding median (removes stellar variability)
+ *   3. Phase-binned BLS on the detrended flux — see runBLS below
+ *   4. Compute the 13 model features plus display values
  *
- * Primary detection: BLS SNR (physics-based)
- * ML model: secondary confidence scorer
+ * Primary detection is the BLS signal-to-noise ratio (physics based); the ML
+ * model in exoplanetModel.ts is a secondary confidence scorer on top of it.
  */
 
 import { ParsedFitsData, FitsHeaderCard } from '../types';
