@@ -1,4 +1,4 @@
-# ExoScope
+# ExoScope      https://exoscope-rho.vercel.app/
 
 A browser-based tool for exploring NASA Kepler light curve data. Load a `.fits`
 file to parse the binary format, plot the light curve, search it for a repeating
