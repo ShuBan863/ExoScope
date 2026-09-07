@@ -1,5 +1,6 @@
-# ExoScope      https://exoscope-rho.vercel.app/
+# ExoScope
 
+https://exoscope-rho.vercel.app/
 A browser-based tool for exploring NASA Kepler light curve data. Load a `.fits`
 file to parse the binary format, plot the light curve, search it for a repeating
 transit signal, and get a classifier's read on whether it looks like a planet.
