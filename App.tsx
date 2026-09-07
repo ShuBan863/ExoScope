@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import FileUpload from './components/FileUpload';
+import ExampleFiles from './components/ExampleFiles';
 import MetadataViewer from './components/MetadataViewer';
 import LightCurveChart from './components/LightCurveChart';
 import ExoplanetResult from './components/ExoplanetResult';
@@ -476,6 +477,7 @@ function App() {
         {!fitsData ? (
           <>
             <FileUpload onDataLoaded={handleDataLoaded} />
+            <ExampleFiles onDataLoaded={handleDataLoaded} />
             <ArchiveSearch onDataLoaded={handleDataLoaded} />
           </>
         ) : (

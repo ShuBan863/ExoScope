@@ -49,8 +49,8 @@ const ExampleFiles: React.FC<ExampleFilesProps> = ({ onDataLoaded }) => {
           ) : (
             <CheckCircle className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
           )}
-          <span className="text-slate-200 font-medium text-sm">Confirmed Planet</span>
-          <span className="text-slate-500 text-xs font-mono">KIC 3115833</span>
+          <span className="text-slate-200 font-medium text-sm">Planet Candidate</span>
+          <span className="text-slate-500 text-xs font-mono">KIC 3115833 · K00797.01</span>
         </button>
 
         <button
@@ -64,7 +64,7 @@ const ExampleFiles: React.FC<ExampleFilesProps> = ({ onDataLoaded }) => {
             <XCircle className="w-6 h-6 text-slate-400 group-hover:scale-110 transition-transform" />
           )}
           <span className="text-slate-200 font-medium text-sm">False Positive</span>
-          <span className="text-slate-500 text-xs font-mono">KIC 2445129</span>
+          <span className="text-slate-500 text-xs font-mono">KIC 2445129 · K00793.01</span>
         </button>
       </div>
     </div>

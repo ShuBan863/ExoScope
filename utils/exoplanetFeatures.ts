@@ -1,14 +1,14 @@
 /**
- * ExoScope Feature Extractor v4.0
+ * ExoScope feature extraction.
  *
  * Pipeline:
- *   1. Load & clean flux
- *   2. Detrend with sliding median (removes stellar variability)
- *   3. BLS on detrended flux (1000 periods, fine duration grid, 20 phases)
- *   4. Compute features for ML model
+ *   1. Load & clean flux (drop bad cadences, sort by time, normalise)
+ *   2. Detrend with a 0.75-day sliding median (removes stellar variability)
+ *   3. Phase-binned BLS on the detrended flux — see runBLS below
+ *   4. Compute the 13 model features plus display values
  *
- * Primary detection: BLS SNR (physics-based)
- * ML model: secondary confidence scorer
+ * Primary detection is the BLS signal-to-noise ratio (physics based); the ML
+ * model in exoplanetModel.ts is a secondary confidence scorer on top of it.
  */
 
 import { ParsedFitsData, FitsHeaderCard } from '../types';
@@ -54,6 +54,26 @@ function headerNum(header: FitsHeaderCard[], ...keys: string[]): number | null {
   return null;
 }
 
+/**
+ * Phase-binned Box Least Squares transit search.
+ *
+ * For each trial period the light curve is folded once into N_BINS phase bins,
+ * then every (duration, epoch) combination is scored against those bins using
+ * prefix sums — O(1) per trial instead of a full O(n) rescan. That makes 400
+ * effective phase trials cheaper than the 20 this previously afforded.
+ *
+ * The earlier implementation swept 1000 x 12 x 20 combinations, rescanning all
+ * n points each time (~9.6e8 operations for a 4000-point quarter, several
+ * seconds of blocked main thread). Its 20 phase trials were spaced ~period/20
+ * apart — 12 hours at P=10 d — while a transit lasts a few hours, so the search
+ * routinely stepped straight over real signals. On KIC 3115833 it recovered
+ * SNR 1.47 at the true 10.1816 d period where fine sampling gives 10.15.
+ *
+ * The scoring formula (depth * sqrt(inN) / std), DUR_FRACS, and the minimum
+ * point counts are deliberately unchanged: combineSignals() in exoplanetModel.ts
+ * hardcodes SNR 8 as marginal and 15 as strong, so the output must stay on the
+ * same scale.
+ */
 function runBLS(
   time: number[],
   flux: number[],
@@ -64,39 +84,69 @@ function runBLS(
   const n   = time.length;
   const std = Math.sqrt(flux.reduce((s, f) => s + (f - 1) ** 2, 0) / n) + 1e-9;
 
-  const N_PERIODS = 1000;
-  const N_PHASES  = 20;
+  const N_PERIODS = 500;   // coarse scan; the refine pass now carries precision
+  const N_BINS    = 400;   // phase resolution, replaces N_PHASES = 20
   const DUR_FRACS = [
     0.004, 0.007, 0.010, 0.014, 0.018, 0.023,
     0.029, 0.036, 0.044, 0.054, 0.065, 0.078,
   ];
+  const MIN_IN = 3, MIN_OUT = 10;
+  const REFINE_HALF_STEPS = 3;
+  const N_FINE_MIN = 50, N_FINE_MAX = 400;
 
-  let bestPow = -Infinity, bestPeriod = (minPeriod + maxPeriod) / 2;
-  let bestDepth = 0, bestDurFrac = 0.02, bestT0 = time[0], bestInN = 0;
+  const refT0 = time[0];
 
-  const logMin = Math.log10(minPeriod);
-  const logMax = Math.log10(maxPeriod);
+  // Scratch buffers, allocated once — evaluateAtPeriod runs ~900 times per call.
+  const binSum = new Float64Array(N_BINS);
+  const binCnt = new Int32Array(N_BINS);
+  const preSum = new Float64Array(2 * N_BINS + 1);
+  const preCnt = new Int32Array(2 * N_BINS + 1);
 
-  for (let pi = 0; pi < N_PERIODS; pi++) {
-    const period = Math.pow(10, logMin + (pi / (N_PERIODS - 1)) * (logMax - logMin));
+  let bestPow = -Infinity;
+  let bestPeriod = (minPeriod + maxPeriod) / 2;
+  let bestDepth = 0, bestStart = 0, bestWBins = 0, bestInN = 0;
+  let found = false;
+
+  /** Fold at `period`, then score every (duration, epoch) against the bins. */
+  const evaluateAtPeriod = (period: number): void => {
+    binSum.fill(0);
+    binCnt.fill(0);
+
+    for (let i = 0; i < n; i++) {
+      const phase = ((time[i] - refT0) % period + period) % period;
+      // Rounding can push phase/period to exactly 1.0; clamp to stay in bounds.
+      let idx = Math.floor((phase / period) * N_BINS);
+      if (idx >= N_BINS) idx = N_BINS - 1;
+      binSum[idx] += flux[i];
+      binCnt[idx] += 1;
+    }
+
+    // Prefix sums over the bins duplicated end-to-end, so a transit window that
+    // wraps past phase 1.0 is still one contiguous slice — no branch in the
+    // inner loop.
+    preSum[0] = 0;
+    preCnt[0] = 0;
+    for (let k = 0; k < 2 * N_BINS; k++) {
+      const j = k < N_BINS ? k : k - N_BINS;
+      preSum[k + 1] = preSum[k] + binSum[j];
+      preCnt[k + 1] = preCnt[k] + binCnt[j];
+    }
+
+    const totalSum = preSum[N_BINS];
+    const totalCnt = preCnt[N_BINS];
 
     for (let di = 0; di < DUR_FRACS.length; di++) {
-      const durFrac = DUR_FRACS[di];
-      const durDays = durFrac * period;
-      const halfDur = durDays / 2;
+      const wBins = Math.max(1, Math.round(DUR_FRACS[di] * N_BINS));
+      if (wBins >= N_BINS) continue;
 
-      for (let ph = 0; ph < N_PHASES; ph++) {
-        const t0 = time[0] + (ph / N_PHASES) * period;
+      for (let start = 0; start < N_BINS; start++) {
+        const inN = preCnt[start + wBins] - preCnt[start];
+        if (inN < MIN_IN) continue;
+        const outN = totalCnt - inN;
+        if (outN < MIN_OUT) continue;
 
-        let inSum = 0, inN = 0, outSum = 0, outN = 0;
-        for (let i = 0; i < n; i++) {
-          const phase = ((time[i] - t0) % period + period) % period;
-          const inTransit = phase < halfDur || phase > period - halfDur;
-          if (inTransit) { inSum += flux[i]; inN++; }
-          else           { outSum += flux[i]; outN++; }
-        }
-
-        if (inN < 3 || outN < 10) continue;
+        const inSum  = preSum[start + wBins] - preSum[start];
+        const outSum = totalSum - inSum;
 
         const depth = (outSum / outN) - (inSum / inN);
         if (depth <= 0) continue;
@@ -104,16 +154,83 @@ function runBLS(
         const power = depth * Math.sqrt(inN) / std;
         if (power > bestPow) {
           bestPow = power; bestPeriod = period; bestDepth = depth;
-          bestDurFrac = durFrac; bestT0 = t0; bestInN = inN;
+          bestStart = start; bestWBins = wBins; bestInN = inN;
+          found = true;
         }
       }
     }
+  };
+
+  const logMin = Math.log10(minPeriod);
+  const logMax = Math.log10(maxPeriod);
+
+  // ── Pass 1: coarse log-spaced scan ────────────────────────────────────────
+  for (let pi = 0; pi < N_PERIODS; pi++) {
+    evaluateAtPeriod(Math.pow(10, logMin + (pi / (N_PERIODS - 1)) * (logMax - logMin)));
   }
 
-  const snr = bestInN > 0 ? bestDepth * Math.sqrt(bestInN) / std : 0;
+  if (!found) {
+    return { period: bestPeriod, depthFrac: 0, durationFrac: 0.02, t0: time[0], snr: 0 };
+  }
+
+  const coarseStep = Math.pow(10, (logMax - logMin) / (N_PERIODS - 1));
+  const bracket    = Math.pow(coarseStep, REFINE_HALF_STEPS);
+  const baseline   = time[n - 1] - time[0];
+
+  /**
+   * Re-scan a narrow window around `center` finely enough that phase drift over
+   * the whole baseline stays under 10% of one transit duration. `durDaysEst` is
+   * an absolute duration in days, so it stays valid when probing a harmonic.
+   */
+  const scanFine = (center: number, durDaysEst: number): void => {
+    const lo = Math.max(minPeriod, center / bracket);
+    const hi = Math.min(maxPeriod, center * bracket);
+    if (hi <= lo) return;
+
+    const cycles   = Math.max(1, baseline / center);
+    const fineStep = Math.max(1e-4, (0.1 * durDaysEst) / cycles);
+
+    let nFine = Math.ceil((hi - lo) / fineStep);
+    nFine = Math.min(N_FINE_MAX, Math.max(N_FINE_MIN, nFine));
+
+    for (let fi = 0; fi < nFine; fi++) {
+      evaluateAtPeriod(lo + (fi / (nFine - 1)) * (hi - lo));
+    }
+  };
+
+  // ── Pass 2: local refinement ──────────────────────────────────────────────
+  // The coarse grid only lands within ~1% of the true period, which still
+  // smears transits: on KIC 3115833 a 0.0195 d offset accumulates to 1.16x the
+  // transit duration across 8.7 orbits.
+  const durDaysEst = (bestWBins / N_BINS) * bestPeriod;
+  scanFine(bestPeriod, durDaysEst);
+
+  // ── Pass 3: sub-harmonic check ────────────────────────────────────────────
+  // A real transit at period P also produces power at 2P and 3P, because
+  // folding at a multiple still stacks a subset of the transits coherently. A
+  // coarse grid actively favours those aliases: longer periods fit fewer cycles
+  // into the baseline, so grid error accumulates into less phase drift. Left
+  // alone this reports 20.360 d for KIC 3115833, twice the true 10.1816 d.
+  // Probe P/2 and P/3 at fine resolution and let the stronger signal win — a
+  // genuinely long-period planet keeps its period, because no transits exist at
+  // the halved spacing and the sub-harmonic simply scores worse.
+  const refinedPeriod = bestPeriod;
+  const refinedDurDays = (bestWBins / N_BINS) * bestPeriod;
+  for (const divisor of [2, 3]) {
+    const candidate = refinedPeriod / divisor;
+    if (candidate < minPeriod) continue;
+    scanFine(candidate, refinedDurDays);
+  }
+
+  // Report the transit centre, matching the old t0 convention — countTransits()
+  // re-derives its windows as t0 +/- duration and depends on it.
+  const centerFrac   = (bestStart + bestWBins / 2) / N_BINS;
+  const t0           = refT0 + centerFrac * bestPeriod;
+  const durationFrac = bestWBins / N_BINS;
+  const snr          = bestInN > 0 ? bestDepth * Math.sqrt(bestInN) / std : 0;
 
   return { period: bestPeriod, depthFrac: Math.max(0, bestDepth),
-           durationFrac: bestDurFrac, t0: bestT0, snr };
+           durationFrac, t0, snr };
 }
 
 function countTransits(
