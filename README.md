@@ -1,8 +1,8 @@
-# exocli
+# ExoScope-cli
 
 Command-line exoplanet transit search for Kepler (and, untested so far, TESS) light curves.
-It started as ExoScope, the browser app by Shuban Langadi and Nafisur Rahman (ISTA Period 4),
-and was rebuilt as a batch tool that analyses the full mission baseline instead of one quarter.
+The original ExoScope browser tool by Shuban Langadi and Nafisur Rahman, rebuilt as a batch tool
+that analyses the full mission baseline instead of one quarter.
 
 The browser app now lives on the `web` branch (a mirror of nafisurr1/ExoScope). The previous
 contents of `main` are preserved on the `archive-old-main` branch.
