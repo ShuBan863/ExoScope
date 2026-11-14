@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exocli"
+version = "0.1.0"
+description = "Command-line exoplanet transit search for Kepler and TESS light curves"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "astropy", "lightkurve", "numba", "scikit-learn"]
+
+[project.scripts]
+exocli = "exocli.__main__:main"
+
+[tool.setuptools]
+packages = ["exocli"]

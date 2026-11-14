@@ -1,0 +1,213 @@
+158 to run, 12 already done, 8 workers
+interrupted; finished stars are saved, rerun the same command to resume
+Exception ignored on threading shutdown:
+Traceback (most recent call last):
+  File "/usr/lib64/python3.14/threading.py", line 1577, in _shutdown
+    atexit_call()
+  File "/usr/lib64/python3.14/threading.py", line 1548, in <lambda>
+    _threading_atexits.append(lambda: func(*arg, **kwargs))
+  File "/usr/lib64/python3.14/concurrent/futures/process.py", line 106, in _python_exit
+    t.join()
+  File "/usr/lib64/python3.14/threading.py", line 1133, in join
+    self._os_thread_handle.join(timeout)
+KeyboardInterrupt: 
+Exception ignored in atexit callback <function _exit_function at 0x7f74499f5430>:
+Traceback (most recent call last):
+  File "/usr/lib64/python3.14/multiprocessing/util.py", line 428, in _exit_function
+    p.join()
+  File "/usr/lib64/python3.14/multiprocessing/process.py", line 156, in join
+    res = self._popen.wait(timeout)
+  File "/usr/lib64/python3.14/multiprocessing/popen_fork.py", line 44, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/usr/lib64/python3.14/multiprocessing/popen_forkserver.py", line 65, in poll
+    if not wait([self.sentinel], timeout):
+  File "/usr/lib64/python3.14/multiprocessing/connection.py", line 1190, in wait
+    ready = selector.select(timeout)
+  File "/usr/lib64/python3.14/selectors.py", line 398, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt: 
+158 to run, 12 already done, 8 workers
+158 to run, 12 already done, 8 workers
+[1/158] KIC 5942808  elapsed 3.3 min, ~522.6 min left
+[2/158] KIC 4736569  elapsed 4.2 min, ~328.1 min left
+[3/158] KIC 10924562  elapsed 4.5 min, ~233.1 min left
+[4/158] KIC 11074541  elapsed 8.6 min, ~332.8 min left
+[5/158] KIC 12058147  elapsed 9.2 min, ~280.4 min left
+[6/158] KIC 11757451  elapsed 9.6 min, ~243.9 min left
+[7/158] KIC 5953297  elapsed 11.6 min, ~251.1 min left
+[8/158] KIC 8226994  elapsed 11.7 min, ~219.0 min left
+[9/158] KIC 10730034  elapsed 11.7 min, ~194.2 min left
+[10/158] KIC 11187837  elapsed 11.8 min, ~174.0 min left
+[11/158] KIC 9157634  elapsed 12.0 min, ~160.8 min left
+[12/158] KIC 11414465  elapsed 12.2 min, ~148.3 min left
+[13/158] KIC 4056616  elapsed 12.3 min, ~137.0 min left
+[14/158] KIC 7679812  elapsed 12.4 min, ~127.3 min left
+[15/158] KIC 4055304  elapsed 12.5 min, ~119.1 min left
+[16/158] KIC 7503885  elapsed 13.6 min, ~120.8 min left
+[17/158] KIC 10713616  elapsed 14.3 min, ~118.3 min left
+[18/158] KIC 8042453  elapsed 14.6 min, ~113.5 min left
+[19/158] KIC 7347246  elapsed 14.7 min, ~107.5 min left
+[20/158] KIC 7216284  elapsed 14.8 min, ~102.1 min left
+[21/158] KIC 8583696  elapsed 15.0 min, ~97.6 min left
+[22/158] KIC 3831053  elapsed 15.0 min, ~92.8 min left
+[23/158] KIC 6761777  elapsed 15.1 min, ~88.6 min left
+[24/158] KIC 3544640  elapsed 171.7 min, ~958.8 min left
+[25/158] KIC 6949061  elapsed 171.7 min, ~913.6 min left
+[26/158] KIC 10916600  elapsed 171.7 min, ~871.8 min left
+[27/158] KIC 11015108  elapsed 171.7 min, ~833.2 min left
+[28/158] KIC 3656121  elapsed 171.7 min, ~797.3 min left
+[29/158] KIC 3640905  elapsed 171.7 min, ~763.9 min left
+[30/158] KIC 5374854  elapsed 171.7 min, ~732.7 min left
+[31/158] KIC 3967326  elapsed 171.7 min, ~703.5 min left
+[32/158] KIC 10585738  elapsed 171.7 min, ~676.1 min left
+[33/158] KIC 4175630  elapsed 171.7 min, ~650.5 min left
+[34/158] KIC 7849854  elapsed 171.7 min, ~626.3 min left
+[35/158] KIC 10351231  elapsed 171.7 min, ~603.5 min left
+[36/158] KIC 11259686  elapsed 171.7 min, ~581.9 min left
+[37/158] KIC 7582689  elapsed 171.7 min, ~561.6 min left
+[38/158] KIC 10593535  elapsed 171.7 min, ~542.3 min left
+[39/158] KIC 12156174  elapsed 171.7 min, ~524.0 min left
+[40/158] KIC 8950853  elapsed 171.7 min, ~506.6 min left
+[41/158] KIC 11244137  elapsed 171.7 min, ~490.0 min left
+[42/158] KIC 10024051  elapsed 171.7 min, ~474.3 min left
+[43/158] KIC 7288306  elapsed 171.7 min, ~459.3 min left
+[44/158] KIC 11401767  elapsed 171.7 min, ~444.9 min left
+[45/158] KIC 3859628  elapsed 171.7 min, ~431.2 min left
+[46/158] KIC 9022166  elapsed 171.7 min, ~418.1 min left
+[47/158] KIC 7585481  elapsed 171.7 min, ~405.6 min left
+[48/158] KIC 10055126  elapsed 171.7 min, ~393.5 min left
+[49/158] KIC 4633570  elapsed 171.7 min, ~382.0 min left
+[50/158] KIC 10004738  elapsed 171.7 min, ~370.9 min left
+[51/158] KIC 5735762  elapsed 171.7 min, ~360.3 min left
+[52/158] KIC 12008872  elapsed 171.7 min, ~350.0 min left
+[53/158] KIC 10586208  elapsed 171.7 min, ~340.2 min left
+[54/158] KIC 9965957  elapsed 171.7 min, ~330.7 min left
+[55/158] KIC 7175184  elapsed 171.7 min, ~321.6 min left
+[56/158] KIC 6026438  elapsed 171.7 min, ~312.8 min left
+[57/158] KIC 3657758  elapsed 171.7 min, ~304.3 min left
+[58/158] KIC 5280587  elapsed 171.7 min, ~296.1 min left
+[59/158] KIC 8183288  elapsed 171.7 min, ~288.1 min left
+[60/158] KIC 12058204  elapsed 171.7 min, ~280.5 min left
+[61/158] KIC 4144576  elapsed 171.7 min, ~273.1 min left
+[62/158] KIC 7534267  elapsed 171.7 min, ~265.9 min left
+[63/158] KIC 5683743  elapsed 171.7 min, ~258.9 min left
+[64/158] KIC 8081905  elapsed 171.7 min, ~252.2 min left
+[65/158] KIC 5281113  elapsed 171.7 min, ~245.7 min left
+[66/158] KIC 4665571  elapsed 171.7 min, ~239.4 min left
+[67/158] KIC 6694186  elapsed 171.7 min, ~233.2 min left
+[68/158] KIC 10489521  elapsed 171.7 min, ~227.3 min left
+[69/158] KIC 5309353  elapsed 171.7 min, ~221.5 min left
+[70/158] KIC 4639868  elapsed 171.7 min, ~215.9 min left
+[71/158] KIC 5471068  elapsed 171.7 min, ~210.4 min left
+[72/158] KIC 7812167  elapsed 171.7 min, ~205.1 min left
+[73/158] KIC 5181817  elapsed 171.7 min, ~199.9 min left
+[74/158] KIC 8254882  elapsed 171.7 min, ~194.9 min left
+[75/158] KIC 9673173  elapsed 171.7 min, ~190.0 min left
+[76/158] KIC 6606282  elapsed 171.7 min, ~185.3 min left
+[77/158] KIC 5551504  elapsed 171.7 min, ~180.6 min left
+[78/158] KIC 7222086  elapsed 171.7 min, ~176.1 min left
+[79/158] KIC 7976136  elapsed 171.7 min, ~171.7 min left
+[80/158] KIC 6679504  elapsed 171.7 min, ~167.4 min left
+[81/158] KIC 3235282  elapsed 171.7 min, ~163.2 min left
+[82/158] KIC 8223655  elapsed 171.7 min, ~159.2 min left
+[83/158] KIC 5556804  elapsed 171.7 min, ~155.2 min left
+[84/158] KIC 10164018  elapsed 171.7 min, ~151.3 min left
+[85/158] KIC 9953575  elapsed 171.7 min, ~147.5 min left
+[86/158] KIC 5130890  elapsed 171.7 min, ~143.8 min left
+[87/158] KIC 10091257  elapsed 171.7 min, ~140.1 min left
+[88/158] KIC 10920086  elapsed 171.7 min, ~136.6 min left
+[89/158] KIC 7117710  elapsed 171.7 min, ~133.1 min left
+[90/158] KIC 8175131  elapsed 171.7 min, ~129.7 min left
+[91/158] KIC 10405482  elapsed 171.7 min, ~126.4 min left
+[92/158] KIC 10272389  elapsed 171.7 min, ~123.2 min left
+[93/158] KIC 10579570  elapsed 171.7 min, ~120.0 min left
+[94/158] KIC 9896435  elapsed 171.7 min, ~116.9 min left
+[95/158] KIC 5196851  elapsed 171.7 min, ~113.9 min left
+[96/158] KIC 6591789  elapsed 171.7 min, ~110.9 min left
+[97/158] KIC 10389280  elapsed 171.7 min, ~108.0 min left
+[98/158] KIC 9277210  elapsed 171.7 min, ~105.1 min left
+[99/158] KIC 9532424  elapsed 171.7 min, ~102.3 min left
+[100/158] KIC 2836076  elapsed 171.7 min, ~99.6 min left
+[101/158] KIC 8743244  elapsed 171.7 min, ~96.9 min left
+[102/158] KIC 8482513  elapsed 171.7 min, ~94.3 min left
+[103/158] KIC 6426592  elapsed 171.7 min, ~91.7 min left
+[104/158] KIC 8192427  elapsed 171.7 min, ~89.2 min left
+[105/158] KIC 3965326  elapsed 171.7 min, ~86.7 min left
+[106/158] KIC 8975776  elapsed 171.7 min, ~84.2 min left
+[107/158] KIC 3860441  elapsed 171.7 min, ~81.8 min left
+[108/158] KIC 5895588  elapsed 171.7 min, ~79.5 min left
+[109/158] KIC 6804648  elapsed 171.7 min, ~77.2 min left
+[110/158] KIC 5817533  elapsed 171.7 min, ~74.9 min left
+[111/158] KIC 5108214  elapsed 171.7 min, ~72.7 min left
+[112/158] KIC 6200709  elapsed 171.7 min, ~70.5 min left
+[113/158] KIC 8686761  elapsed 171.7 min, ~68.4 min left
+[114/158] KIC 8552583  elapsed 171.7 min, ~66.3 min left
+[115/158] KIC 9084832  elapsed 171.7 min, ~64.2 min left
+[116/158] KIC 9246715  elapsed 171.7 min, ~62.2 min left
+[117/158] KIC 7281411  elapsed 171.7 min, ~60.2 min left
+[118/158] KIC 11305996  elapsed 171.7 min, ~58.2 min left
+[119/158] KIC 11769146  elapsed 171.7 min, ~56.3 min left
+[120/158] KIC 9094763  elapsed 171.7 min, ~54.4 min left
+[121/158] KIC 11912932  elapsed 171.7 min, ~52.5 min left
+[122/158] KIC 5872150  elapsed 171.7 min, ~50.7 min left
+[123/158] KIC 9602775  elapsed 171.7 min, ~48.9 min left
+[124/158] KIC 9641076  elapsed 171.7 min, ~47.1 min left
+[125/158] KIC 10031885  elapsed 171.7 min, ~45.3 min left
+[126/158] KIC 11619964  elapsed 171.7 min, ~43.6 min left
+[127/158] KIC 8560475  elapsed 171.7 min, ~41.9 min left
+[128/158] KIC 6047498  elapsed 171.7 min, ~40.2 min left
+[129/158] KIC 5130380  elapsed 171.7 min, ~38.6 min left
+[130/158] KIC 8742735  elapsed 171.7 min, ~37.0 min left
+[131/158] KIC 10924853  elapsed 171.7 min, ~35.4 min left
+[132/158] KIC 4826439  elapsed 171.7 min, ~33.8 min left
+[133/158] KIC 4758350  elapsed 171.7 min, ~32.3 min left
+[134/158] KIC 9934208  elapsed 171.7 min, ~30.8 min left
+[135/158] KIC 7035812  elapsed 171.7 min, ~29.3 min left
+[136/158] KIC 11153259  elapsed 171.7 min, ~27.8 min left
+[137/158] KIC 8736245  elapsed 171.7 min, ~26.3 min left
+[138/158] KIC 6863161  elapsed 171.7 min, ~24.9 min left
+[139/158] KIC 9533489  elapsed 171.7 min, ~23.5 min left
+[140/158] KIC 3327993  elapsed 171.7 min, ~22.1 min left
+[141/158] KIC 7620844  elapsed 171.7 min, ~20.7 min left
+[142/158] KIC 5385469  elapsed 171.7 min, ~19.3 min left
+[143/158] KIC 10415227  elapsed 171.7 min, ~18.0 min left
+[144/158] KIC 5103942  elapsed 171.7 min, ~16.7 min left
+[145/158] KIC 5513822  elapsed 171.7 min, ~15.4 min left
+[146/158] KIC 9705459  elapsed 171.7 min, ~14.1 min left
+[147/158] KIC 6847018  elapsed 171.7 min, ~12.8 min left
+[148/158] KIC 5024414  elapsed 171.7 min, ~11.6 min left
+[149/158] KIC 4758368  elapsed 171.7 min, ~10.4 min left
+[150/158] KIC 8193315  elapsed 171.7 min, ~9.2 min left
+[151/158] KIC 9651155  elapsed 171.7 min, ~8.0 min left
+[152/158] KIC 6779726  elapsed 172.0 min, ~6.8 min left
+[153/158] KIC 8822216  elapsed 172.5 min, ~5.6 min left
+[154/158] KIC 10591855  elapsed 172.6 min, ~4.5 min left
+[155/158] KIC 8463346  elapsed 172.7 min, ~3.3 min left
+[156/158] KIC 7512982  elapsed 172.8 min, ~2.2 min left
+[157/158] KIC 12070811  elapsed 172.8 min, ~1.1 min left
+[158/158] KIC 8890150  elapsed 173.7 min, ~0.0 min left
+128 to run, 42 already done, 8 workers
+[1/128] KIC 3967326  elapsed 1.1 min, ~137.9 min left
+[2/128] KIC 5374854  elapsed 1.5 min, ~95.0 min left
+[3/128] KIC 3640905  elapsed 1.6 min, ~66.9 min left
+[4/128] KIC 3656121  elapsed 1.6 min, ~50.6 min left
+[5/128] KIC 10916600  elapsed 1.7 min, ~41.2 min left
+[6/128] KIC 10730034  elapsed 1.8 min, ~35.9 min left
+[7/128] KIC 6949061  elapsed 1.8 min, ~30.6 min left
+[8/128] KIC 11015108  elapsed 1.8 min, ~27.4 min left
+[9/128] KIC 10585738  elapsed 2.5 min, ~33.7 min left
+[10/128] KIC 4175630  elapsed 2.8 min, ~33.6 min left
+[11/128] KIC 7849854  elapsed 3.1 min, ~32.8 min left
+[12/128] KIC 10024051  elapsed 3.1 min, ~29.8 min left
+[13/128] KIC 12156174  elapsed 3.1 min, ~27.7 min left
+[14/128] KIC 11259686  elapsed 3.1 min, ~25.5 min left
+[15/128] KIC 10351231  elapsed 3.2 min, ~24.1 min left
+[16/128] KIC 10593535  elapsed 3.3 min, ~23.2 min left
+[17/128] KIC 7582689  elapsed 3.5 min, ~23.1 min left
+[18/128] KIC 3859628  elapsed 4.3 min, ~26.3 min left
+[19/128] KIC 8950853  elapsed 4.3 min, ~24.8 min left
+[20/128] KIC 9022166  elapsed 4.6 min, ~24.8 min left
+[21/128] KIC 11244137  elapsed 4.6 min, ~23.4 min left
+[22/128] KIC 7288306  elapsed 4.7 min, ~22.7 min left
+[23/128] KIC 7585481  elapsed 4.8 min, ~21.9 min left
+[24/128] KIC 11401767  elapsed 4.8 min, ~21.0 min left
