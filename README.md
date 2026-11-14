@@ -14,6 +14,7 @@ contents of `main` are preserved on the `archive-old-main` branch.
     exocli batch - --jobs 8 --out benchmark/results.jsonl < benchmark/targets.txt
     exocli score benchmark/results.jsonl --sample benchmark/sample.json --koi benchmark/koi_cumulative.csv
     python -m exocli.vet benchmark/results.jsonl --out benchmark/vetted.jsonl
+python benchmark/classify.py          # cross-validated planet vs false-positive classifier
 
 - fetch: pulls all long-cadence Kepler quarters (or TESS 2-minute sectors) through lightkurve,
   normalises each quarter separately, clips upward outliers only, and caches a compact .npz.
@@ -23,8 +24,7 @@ contents of `main` are preserved on the `archive-old-main` branch.
 - batch: parallel and resumable. Rerunning the same command skips stars already finished.
 - score: checks whether the search found the catalogue period in NASA's KOI table.
 - vet: measures secondary eclipse, odd/even depth, transit shape, uniqueness against other phases, and
-  depth consistency across transits and quarters. These are the features for a planet vs false-positive
-  classifier.
+  depth consistency across transits and quarters. These are the features for the planet vs false-positive classifier in `benchmark/classify.py` (random forest, cross-validated).
 
 All commands read targets as `KIC <n>` or `TIC <n>`, from arguments or from stdin, and write JSON lines.
 
@@ -36,7 +36,8 @@ All commands read targets as `KIC <n>` or `TIC <n>`, from arguments or from stdi
 
 ## Status
 
-Work in progress. On a 170-star labelled sample (85 confirmed planets, 85 false positives) the search
-recovered the catalogue period for 62 of the first 65 confirmed planets run. The false positives have not
-been run yet, so there is no planet vs false-positive accuracy figure. Known gap: the minimum search
-period is 0.6 days, so planets with shorter periods are missed. TESS support is implemented but untested.
+Work in progress. On a 170-star labelled sample (85 confirmed planets, 85 false positives) the search recovered the catalogue period for 82 of the 85 confirmed planets.
+
+A random forest on the vetting features gets about 90% accuracy (AUC 0.97) in 5-fold cross-validation on 165 of the 170 stars (85 planets, 80 false positives), against the browser model's reported 73.5% (not necessarily measured the same way). Search features alone give about 80%. The labels come from Kepler's own vetting, so part of this is reproducing those tests. Five false positives were left out: they were found at about 0.26 d with a transit covering over half the orbit, so there was no out-of-transit data to vet, and they look like contact binaries.
+
+Known gap: the minimum search period is 0.25 days, so planets with shorter periods are missed. TESS support is implemented but untested.
