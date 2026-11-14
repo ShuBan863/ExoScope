@@ -4,7 +4,7 @@ Command-line exoplanet transit search for Kepler (and, untested so far, TESS) li
 The original ExoScope browser tool by Shuban Langadi and Nafisur Rahman, rebuilt as a batch tool
 that analyses the full mission baseline instead of one quarter.
 
-The browser app now lives on the `web` branch (a mirror of nafisurr1/ExoScope). The previous
+The browser app ([exoscope-rho.vercel.app](https://exoscope-rho.vercel.app)) now lives on the `web` branch (a mirror of nafisurr1/ExoScope). The previous
 contents of `main` are preserved on the `archive-old-main` branch.
 
 ## What it does
