@@ -57,7 +57,34 @@ def _resid(power: np.ndarray, kernel: int = 2001) -> np.ndarray:
     return r / sd if sd > 0 else r
 
 
-def search_top(lc: LightCurve, p_min: float = 0.6, p_max: float | None = None,
+class _Res:
+    """Concatenated BLS output (only the fields search_top reads)."""
+    def __init__(self, parts):
+        for name in ("period", "power", "depth", "depth_snr", "duration", "transit_time"):
+            setattr(self, name, np.concatenate([np.asarray(getattr(q, name)) for q in parts]))
+
+
+_SHORT_DURATIONS = np.array([0.02, 0.035, 0.05, 0.075, 0.10, 0.15])
+
+
+def _bls_power(bls, periods, durations):
+    """astropy's BLS refuses to run if any trial duration is as long as the shortest period, so
+    periods under 1 d get their own, shorter set of durations. With p_min >= 0.6 this is a single
+    ordinary call, identical to before."""
+    if durations.max() < periods.min():
+        return bls.power(periods, durations, objective="likelihood")
+    short = periods < 1.0
+    parts = []
+    if (~short).any():
+        parts.append(bls.power(periods[~short], durations, objective="likelihood"))
+    ds = _SHORT_DURATIONS[_SHORT_DURATIONS < 0.9 * periods[short].min()]
+    if ds.size == 0:
+        raise ValueError("minimum period is too short for this search")
+    parts.append(bls.power(periods[short], ds, objective="likelihood"))
+    return _Res(parts)
+
+
+def search_top(lc: LightCurve, p_min: float = 0.25, p_max: float | None = None,
                oversample: float = 3.0, n_peaks: int = 5, min_transits: int = 3,
                max_single_frac: float = 0.5):
     """Up to n_peaks separate candidates, strongest first. A peak is skipped if it has fewer than
@@ -86,7 +113,7 @@ def search_top(lc: LightCurve, p_min: float = 0.6, p_max: float | None = None,
     n_mask = 0
     while True:
         bls = BoxLeastSquares(t, f, dy=e)
-        res = bls.power(periods, durations, objective="likelihood")
+        res = _bls_power(bls, periods, durations)
         z = _resid(res.power)
         i = int(np.argmax(z))
         per, dur, t0 = float(res.period[i]), float(res.duration[i]), float(res.transit_time[i])
@@ -130,6 +157,6 @@ def search_top(lc: LightCurve, p_min: float = 0.6, p_max: float | None = None,
     return peaks
 
 
-def search(lc: LightCurve, p_min: float = 0.6, p_max: float | None = None,
+def search(lc: LightCurve, p_min: float = 0.25, p_max: float | None = None,
            oversample: float = 3.0) -> Candidate:
     return search_top(lc, p_min, p_max, oversample, n_peaks=1)[0]

@@ -40,7 +40,7 @@ def _already_done(out_path):
 
 
 def run_batch(targets, data_dir, cache_dir, jobs, out_path=None,
-              window=1.5, min_period=0.6, max_period=None) -> int:
+              window=1.5, min_period=0.25, max_period=None) -> int:
     done = _already_done(out_path)
     todo, seen, failed = [], set(), 0
     for t in targets:
